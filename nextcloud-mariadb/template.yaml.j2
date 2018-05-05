@@ -1,0 +1,688 @@
+apiVersion: v1
+kind: Template
+labels:
+  template: {{tmpl_vars['templates']['nextcloud-mariadb']['template_label']}}
+message: |-
+  The following service(s) have been created in your project: ${APP_NAME}, ${DATABASE_SERVICE_NAME}.
+
+    ${APP_NAME}:
+      Nextcloud admin username: ${NEXTCLOUD_ADMIN_USER}
+      Nextcloud admin password: ${NEXTCLOUD_ADMIN_PASSWORD}
+      Nextcloud connection URL: ${NEXTCLOUD_HOST}
+
+    ${DATABASE_SERVICE_NAME}:
+            Username: ${MYSQL_USER}
+            Password: ${MYSQL_PASSWORD}
+       Database Name: ${MYSQL_DATABASE}
+      Connection URL: mysql://${DATABASE_SERVICE_NAME}:3306/
+
+  For more information about using this template, including OpenShift considerations, see https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/blob/{{tmpl_vars['github']['branch']}}/${TEMPLATE_NAME}/
+
+metadata:
+  name: {{tmpl_vars['templates']['nextcloud-mariadb']['template_name']}}
+  annotations:
+    description: |-
+      Nextcloud open source secure collaboration solution with MariaDB database service backend for persistent storage.
+      For more information about using this template, including OpenShift considerations, see https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/blob/{{tmpl_vars['github']['branch']}}/${TEMPLATE_NAME}/
+
+      NOTE: Scaling MariaDB to more than one replica is not supported. You must have persistent volumes available in your cluster to use this template.
+    tags: "filesharing,nextcloud"
+    iconClass: fa fa-cloud-upload
+    openshift.io/display-name: Nextcloud (MariaDB Persistence)
+    template.openshift.io/long-description: This template provides a Nextcloud instance backed with a 
+      standalone MariaDB server. The database is stored on persistent storage.  The
+      database name, username, and password are chosen via parameters when provisioning
+      this service.
+    template.openshift.io/provider-display-name: OIP by ITisOpen, Inc.
+    template.openshift.io/documentation-url: "https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/blob/{{tmpl_vars['github']['branch']}}/${TEMPLATE_NAME}/README.md"
+    template.openshift.io/support-url: "https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/issues"
+parameters:
+- name: TEMPLATE_NAME
+  description: Name of the template
+  required: true
+  value: nextcloud-mariadb
+- name: APP_NAME
+  description: Name of the application
+  required: true
+  value: nextcloud
+- name: NEXTCLOUD_HOST
+  description: Application URL of Nextcloud (Route/host)
+  required: false
+- name: NEXTCLOUD_IMAGE
+  description: Image to deploy
+  value: docker.io/nextcloud
+- name: NEXTCLOUD_IMAGE_TAG
+  description: Tag of the Nextcloud Docker Image to deploy
+  value: 13-fpm
+- name: NGINX_DOCKERFILE_REPO
+  description: Nginx Dockerfile source repository
+  value: https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}.git
+- name: STORAGE_CLASS
+  description: Storage class to use when claiming volume. It must support ReadWriteMany access mode.
+  value: {{tmpl_vars['templates']['nextcloud-mariadb']['storageclass']}}
+- name: PVC_SIZE
+  description: PVC size for Apps, Config and Data
+  value: 5Gi
+- name: HTTP_PROXY
+  description: http proxy to use to connect to internet, if any
+  required: false
+  value: {{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}
+- name: HTTPS_PROXY
+  description: https proxy to use to connect to internet, if any
+  required: false
+  value: {{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}
+- name: NO_PROXY
+  description: http proxy exclusion list, if proxy is configured
+  required: false
+  value: {{tmpl_vars['http_proxy']['no_proxy']}}
+- name: http_proxy
+  description: http proxy to use to connect to internet, if any
+  required: false
+  value: {{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}
+- name: https_proxy
+  description: https proxy to use to connect to internet, if any
+  required: false
+  value: {{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}
+- name: no_proxy
+  description: http proxy exclusion list, if proxy is configured
+  required: false
+  value: {{tmpl_vars['http_proxy']['no_proxy']}}
+- name: NEXTCLOUD_ADMIN_USER
+  description: Username for Nextcloud user that will be granted admin privileges.
+  displayName: Nextcloud Connection Admin Username
+  from: admin[A-Z0-9]{3}
+  generate: expression
+  required: true
+- name: NEXTCLOUD_ADMIN_PASSWORD
+  description: Password for the Nextcloud admin user.
+  displayName: Nextcloud Connection Admin Password
+  from: '[a-zA-Z0-9]{16}'
+  generate: expression
+  required: true
+# Database
+- description: Maximum amount of memory the database container can use.
+  displayName: Database Memory Limit
+  name: DB_MEMORY_LIMIT
+  required: true
+  value: 512Mi
+- description: The OpenShift Namespace where the database ImageStream resides.
+  displayName: Namespace
+  name: DB_IMGSTR_NAMESPACE
+  value: openshift
+- description: The name of the OpenShift Service exposed for the database.
+  displayName: Database Service Name
+  name: DATABASE_SERVICE_NAME
+  required: true
+  value: mariadb
+- description: Username for MariaDB user that will be used for accessing the database.
+  displayName: MariaDB Connection Username
+  from: user[A-Z0-9]{3}
+  generate: expression
+  name: MYSQL_USER
+  required: true
+- description: Password for the MariaDB connection user.
+  displayName: MariaDB Connection Password
+  from: '[a-zA-Z0-9]{16}'
+  generate: expression
+  name: MYSQL_PASSWORD
+  required: true
+- description: Password for the MariaDB root user.
+  displayName: MariaDB root Password
+  from: '[a-zA-Z0-9]{16}'
+  generate: expression
+  name: MYSQL_ROOT_PASSWORD
+  required: true
+- description: Name of the MariaDB database accessed.
+  displayName: MariaDB Database Name
+  name: MYSQL_DATABASE
+  required: true
+  value: nextcloud
+- description: Database volume space available for data, e.g. 512Mi, 2Gi.
+  displayName: Database Volume Capacity
+  name: DB_VOLUME_CAPACITY
+  required: true
+  value: 1Gi
+objects:
+- apiVersion: v1
+  kind: Secret
+  metadata:
+    annotations:
+      template.openshift.io/expose-nextcloud_admin_username: '{.data[''nc-admin-username'']}'
+      template.openshift.io/expose-nextcloud_admin_password: '{.data[''nc-admin-password'']}'
+    name: ${APP_NAME}
+  stringData:
+    nc-admin-username: ${NEXTCLOUD_ADMIN_USER}
+    nc-admin-password: ${NEXTCLOUD_ADMIN_PASSWORD}
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: ${APP_NAME}-data
+  spec:
+    accessModes:
+    - ReadWriteMany
+    resources:
+      requests:
+        storage: ${PVC_SIZE}
+    storageClassName: ${STORAGE_CLASS}
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      app: ${APP_NAME}
+    name: ${APP_NAME}
+  spec:
+    tags:
+    - annotations:
+        openshift.io/imported-from: ${NEXTCLOUD_IMAGE}:${NEXTCLOUD_IMAGE_TAG}
+      from:
+        kind: DockerImage
+        name: ${NEXTCLOUD_IMAGE}:${NEXTCLOUD_IMAGE_TAG}
+      importPolicy:
+        scheduled: true
+      name: ${NEXTCLOUD_IMAGE_TAG}
+      referencePolicy:
+        type: Source
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      build: nginx
+      app: ${APP_NAME}
+    name: nginx
+  spec:
+    tags:
+    - annotations: null
+      from:
+        kind: DockerImage
+        name: nginx:latest
+      generation: null
+      importPolicy: {}
+      name: latest
+      referencePolicy:
+        type: ""
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    creationTimestamp: null
+    labels:
+      build: nginx
+      app: ${APP_NAME}
+    name: nginx
+  spec:
+    nodeSelector: null
+    output:
+      to:
+        kind: ImageStreamTag
+        name: nginx:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: Serial
+    source:
+      git:
+        uri: ${NGINX_DOCKERFILE_REPO}
+      type: Git
+    strategy:
+      dockerStrategy:
+        from:
+          kind: DockerImage
+          name: nginx:alpine
+      type: Docker
+    triggers:
+    - type: ConfigChange
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      app: ${APP_NAME}
+    name: ${APP_NAME}
+  spec:
+    replicas: 1
+    selector:
+      app: ${APP_NAME}
+      deploymentconfig: ${APP_NAME}
+    strategy:
+      activeDeadlineSeconds: 21600
+      resources: {}
+      rollingParams:
+        intervalSeconds: 1
+        maxSurge: 25%
+        maxUnavailable: 25%
+        timeoutSeconds: 600
+        updatePeriodSeconds: 1
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          app: ${APP_NAME}
+          deploymentconfig: ${APP_NAME}
+      spec:
+        containers:
+        - env:
+          - name: NC_dbhost
+            value: mariadb
+          - name: NC_dbuser
+            valueFrom:
+              secretKeyRef:
+                key: database-user
+                name: mariadb
+          - name: NC_dbpassword
+            valueFrom:
+              secretKeyRef:
+                key: database-password
+                name: mariadb
+          - name: NC_dbname
+            value: nextcloud
+          - name: MYSQL_HOST
+            value: mariadb
+          - name: MYSQL_DATABASE
+            value: nextcloud
+          - name: MYSQL_USER
+            valueFrom:
+              secretKeyRef:
+                key: database-user
+                name: mariadb
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: database-password
+                name: mariadb
+          - name: NEXTCLOUD_ADMIN_USER
+            valueFrom:
+              secretKeyRef:
+                key: nc-admin-username
+                name: ${APP_NAME}
+          - name: NEXTCLOUD_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: nc-admin-password
+                name: ${APP_NAME}
+          - name: HTTP_PROXY
+            value: ${HTTP_PROXY}
+          - name: HTTPS_PROXY
+            value: ${HTTPS_PROXY}
+          - name: NO_PROXY
+            value: ${NO_PROXY}
+          - name: http_proxy
+            value: ${HTTP_PROXY}
+          - name: https_proxy
+            value: ${HTTPS_PROXY}
+          - name: no_proxy
+            value: ${NO_PROXY}
+          image: ${APP_NAME}
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 9000
+            timeoutSeconds: 5
+          name: ${APP_NAME}
+          ports:
+          - containerPort: 9000
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 9000
+            timeoutSeconds: 5
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          volumeMounts:
+          - mountPath: /var/www/html
+            name: ${APP_NAME}-source
+          - mountPath: /var/www/html/data
+            name: ${APP_NAME}-data
+            subPath: data
+          - mountPath: /var/www/html/config
+            name: ${APP_NAME}-data
+            subPath: config
+          - mountPath: /var/www/html/custom_apps
+            name: ${APP_NAME}-data
+            subPath: apps
+          - mountPath: /var/www/html/config/autoconfig.php
+            name: ${APP_NAME}-autoconfig
+            subPath: autoconfig.php
+          - mountPath: /var/www/html/config/oip-defaults.config.php
+            name: ${APP_NAME}-oip-defaults
+            subPath: oip-defaults.config.php
+        - image: nginx
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 1
+          name: nginx
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 1
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          volumeMounts:
+          - mountPath: /var/www/html
+            name: ${APP_NAME}-source
+          - mountPath: /var/www/html/data
+            name: ${APP_NAME}-data
+            subPath: data
+          - mountPath: /var/www/html/config
+            name: ${APP_NAME}-data
+            subPath: config
+          - mountPath: /var/www/html/custom_apps
+            name: ${APP_NAME}-data
+            subPath: apps
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - emptyDir: {}
+          name: ${APP_NAME}-source
+        - name: ${APP_NAME}-data
+          persistentVolumeClaim:
+            claimName: ${APP_NAME}-data
+        - name: ${APP_NAME}-autoconfig
+          configMap:
+            name: ${APP_NAME}-autoconfig
+        - name: ${APP_NAME}-oip-defaults
+          configMap:
+            name: ${APP_NAME}-oip-defaults
+    test: false
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - nextcloud
+        from:
+          kind: ImageStreamTag
+          name: ${APP_NAME}:${NEXTCLOUD_IMAGE_TAG}
+      type: ImageChange
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - nginx
+        from:
+          kind: ImageStreamTag
+          name: nginx:latest
+      type: ImageChange
+    - type: ConfigChange
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app: ${APP_NAME}
+    name: ${APP_NAME}
+  spec:
+    ports:
+    - name: 8080-tcp
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: ${APP_NAME}
+      deploymentconfig: ${APP_NAME}
+    sessionAffinity: None
+    type: ClusterIP
+- apiVersion: v1
+  kind: Route
+  metadata:
+    annotations:
+      kubernetes.io/tls-acme: "true"
+    name: ${APP_NAME}
+  spec:
+    host: ${NEXTCLOUD_HOST}
+    port:
+      targetPort: 8080-tcp
+    tls:
+      insecureEdgeTerminationPolicy: Redirect
+      termination: edge
+    to:
+      kind: Service
+      name: ${APP_NAME}
+      weight: 100
+    wildcardPolicy: None
+- apiVersion: batch/v2alpha1
+  kind: CronJob
+  metadata:
+    name: ${APP_NAME}-cron
+  spec:
+    concurrencyPolicy: Replace
+    jobTemplate:
+      spec:
+        successfulJobsHistoryLimit: 5
+        failedJobsHistoryLimit: 5
+        activeDeadlineSeconds: 3600
+        template:
+          spec:
+            containers:
+            - args:
+              - php
+              - -f
+              - /var/www/html/cron.php
+              env:
+              - name: NC_dbhost
+                value: mariadb
+              - name: NC_dbuser
+                valueFrom:
+                  secretKeyRef:
+                    key: database-user
+                    name: mariadb
+              - name: NC_dbpassword
+                valueFrom:
+                  secretKeyRef:
+                    key: database-password
+                    name: mariadb
+              - name: NC_dbname
+                value: nextcloud
+              image: ${APP_NAME}:${NEXTCLOUD_IMAGE_TAG}
+              imagePullPolicy: Always
+              name: ${APP_NAME}-cron
+              resources: {}
+              terminationMessagePath: /dev/termination-log
+              volumeMounts:
+              - mountPath: /var/www/html
+                name: ${APP_NAME}-source
+              - mountPath: /var/www/html/data
+                name: ${APP_NAME}-data
+                subPath: data
+              - mountPath: /var/www/html/config
+                name: ${APP_NAME}-data
+                subPath: config
+              - mountPath: /var/www/html/custom_apps
+                name: ${APP_NAME}-data
+                subPath: apps
+            dnsPolicy: ClusterFirst
+            restartPolicy: Never
+            securityContext: {}
+            terminationGracePeriodSeconds: 30
+            volumes:
+            - emptyDir: {}
+              name: ${APP_NAME}-source
+            - name: ${APP_NAME}-data
+              persistentVolumeClaim:
+                claimName: ${APP_NAME}-data
+    schedule: '*/15 * * * *'
+    suspend: false
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: ${APP_NAME}-autoconfig
+  data:
+    autoconfig.php: |
+      <?php
+
+      $autoconfig_enabled = true;
+
+      if (getenv('SQLITE_DATABASE')) {
+          $AUTOCONFIG["dbtype"] = "sqlite";
+          $AUTOCONFIG["dbname"] = getenv('SQLITE_DATABASE');
+          $autoconfig_enabled = true;
+      } elseif (getenv('MYSQL_DATABASE') && getenv('MYSQL_USER') && getenv('MYSQL_PASSWORD') && getenv('MYSQL_HOST')) {
+          $AUTOCONFIG["dbtype"] = "mysql";
+          $AUTOCONFIG["dbname"] = getenv('MYSQL_DATABASE');
+          $AUTOCONFIG["dbuser"] = getenv('MYSQL_USER');
+          $AUTOCONFIG["dbpass"] = getenv('MYSQL_PASSWORD');
+          $AUTOCONFIG["dbhost"] = getenv('MYSQL_HOST');
+          $autoconfig_enabled = true;
+      } elseif (getenv('POSTGRES_DB') && getenv('POSTGRES_USER') && getenv('POSTGRES_PASSWORD') && getenv('POSTGRES_HOST')) {
+          $AUTOCONFIG["dbtype"] = "pgsql";
+          $AUTOCONFIG["dbname"] = getenv('POSTGRES_DB');
+          $AUTOCONFIG["dbuser"] = getenv('POSTGRES_USER');
+          $AUTOCONFIG["dbpass"] = getenv('POSTGRES_PASSWORD');
+          $AUTOCONFIG["dbhost"] = getenv('POSTGRES_HOST');
+          $autoconfig_enabled = true;
+      }
+
+      if ($autoconfig_enabled) {
+          $AUTOCONFIG["dbtableprefix"] = getenv('NEXTCLOUD_TABLE_PREFIX') ?: "";
+
+          $AUTOCONFIG["directory"] = getenv('NEXTCLOUD_DATA_DIR') ?: "/var/www/html/data";
+
+          if (getenv('NEXTCLOUD_ADMIN_USER') && getenv('NEXTCLOUD_ADMIN_PASSWORD')) {
+              $AUTOCONFIG["adminlogin"] = getenv('NEXTCLOUD_ADMIN_USER');
+              $AUTOCONFIG["adminpass"] = getenv('NEXTCLOUD_ADMIN_PASSWORD');
+          }
+      }
+      - apiVersion: v1
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: ${APP_NAME}-oip-defaults
+  data:
+    oip-defaults.config.php: |
+      <?php
+      $CONFIG = array (
+          'check_data_directory_permissions' => false,
+          'proxy' => '{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}',
+      );
+- apiVersion: v1
+  kind: Secret
+  metadata:
+    annotations:
+      template.openshift.io/expose-database_name: '{.data[''database-name'']}'
+      template.openshift.io/expose-password: '{.data[''database-password'']}'
+      template.openshift.io/expose-root_password: '{.data[''database-root-password'']}'
+      template.openshift.io/expose-username: '{.data[''database-user'']}'
+    name: ${DATABASE_SERVICE_NAME}
+  stringData:
+    database-name: ${MYSQL_DATABASE}
+    database-password: ${MYSQL_PASSWORD}
+    database-root-password: ${MYSQL_ROOT_PASSWORD}
+    database-user: ${MYSQL_USER}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      template.openshift.io/expose-uri: mysql://{.spec.clusterIP}:{.spec.ports[?(.name=="mariadb")].port}
+    name: ${DATABASE_SERVICE_NAME}
+  spec:
+    ports:
+    - name: mariadb
+      port: 3306
+    selector:
+      name: ${DATABASE_SERVICE_NAME}
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: ${DATABASE_SERVICE_NAME}
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: ${DB_VOLUME_CAPACITY}
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    annotations:
+      template.alpha.openshift.io/wait-for-ready: "true"
+    name: ${DATABASE_SERVICE_NAME}
+  spec:
+    replicas: 1
+    selector:
+      name: ${DATABASE_SERVICE_NAME}
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
+          name: ${DATABASE_SERVICE_NAME}
+      spec:
+        containers:
+        - env:
+          - name: MYSQL_USER
+            valueFrom:
+              secretKeyRef:
+                key: database-user
+                name: ${DATABASE_SERVICE_NAME}
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: database-password
+                name: ${DATABASE_SERVICE_NAME}
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: database-root-password
+                name: ${DATABASE_SERVICE_NAME}
+          - name: MYSQL_DATABASE
+            valueFrom:
+              secretKeyRef:
+                key: database-name
+                name: ${DATABASE_SERVICE_NAME}
+          image: ' '
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            initialDelaySeconds: 30
+            tcpSocket:
+              port: 3306
+            timeoutSeconds: 1
+          name: mariadb
+          ports:
+          - containerPort: 3306
+          readinessProbe:
+            exec:
+              command:
+              - /bin/sh
+              - -i
+              - -c
+              - MYSQL_PWD="$MYSQL_PASSWORD" mysql -h 127.0.0.1 -u $MYSQL_USER -D
+                $MYSQL_DATABASE -e 'SELECT 1'
+            initialDelaySeconds: 5
+            timeoutSeconds: 1
+          resources:
+            limits:
+              memory: ${DB_MEMORY_LIMIT}
+          volumeMounts:
+          - mountPath: /var/lib/mysql/data
+            name: ${DATABASE_SERVICE_NAME}-data
+        volumes:
+        - name: ${DATABASE_SERVICE_NAME}-data
+          persistentVolumeClaim:
+            claimName: ${DATABASE_SERVICE_NAME}
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - mariadb
+        from:
+          kind: ImageStreamTag
+          name: mariadb:10.1
+          namespace: ${DB_IMGSTR_NAMESPACE}
+      type: ImageChange
+    - type: ConfigChange

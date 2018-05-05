@@ -1,0 +1,23 @@
+# Global variables
+private_dns_domain: prd.lab-nxtit.priv
+
+# Github variables, used for example to refer to templates repo
+github:
+  org: oip-core
+  repo: oip-core-ocp-templates
+  branch: master
+
+# HTTP proxy
+#TODO: find out how to reuse previously defined private_dns_domain variable
+http_proxy:
+  proto: http
+  host: webproxy.prd.lab-nxtit.priv
+  port: 3128
+  no_proxy: 127.0.0.1,localhost,.localdomain,.local,.svc,.prd.lab-nxtit.priv,.che-host
+
+# Template-specific variables
+templates:
+  nextcloud-mariadb:
+    template_label: nextcloud-mariadb
+    template_name: nextcloud-mariadb
+    storageclass: glusterfs-storage
