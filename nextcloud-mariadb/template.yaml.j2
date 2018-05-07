@@ -99,6 +99,11 @@ parameters:
   from: '[a-zA-Z0-9]{16}'
   generate: expression
   required: true
+- name: NEXTCLOUD_APPS_2_INSTALL
+  description: These apps will be installed and enabled during post-install
+  displayName: Nextcloud apps to install and enable
+  required: false
+  value: {{tmpl_vars['templates']['nextcloud-mariadb']['nextcloud_apps']}}
 - name: NEXTCLOUD_PROXY
   description: http proxy to use for Nextcloud to connect to internet, if any
   required: false
@@ -157,6 +162,17 @@ objects:
   stringData:
     nc-admin-username: ${NEXTCLOUD_ADMIN_USER}
     nc-admin-password: ${NEXTCLOUD_ADMIN_PASSWORD}
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: ${APP_NAME}-source
+  spec:
+    accessModes:
+    - ReadWriteMany
+    resources:
+      requests:
+        storage: ${PVC_SIZE}
+    storageClassName: ${STORAGE_CLASS}
 - apiVersion: v1
   kind: PersistentVolumeClaim
   metadata:
@@ -396,8 +412,9 @@ objects:
         securityContext: {}
         terminationGracePeriodSeconds: 30
         volumes:
-        - emptyDir: {}
-          name: ${APP_NAME}-source
+        - name: ${APP_NAME}-source
+          persistentVolumeClaim:
+            claimName: ${APP_NAME}-source
         - name: ${APP_NAME}-data
           persistentVolumeClaim:
             claimName: ${APP_NAME}-data
@@ -575,6 +592,31 @@ objects:
           'proxy' => '${NEXTCLOUD_PROXY}',
       );
 - apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: ${APP_NAME}-post-install-job
+  data:
+    post-install.sh: |
+      #!/bin/sh
+
+      _log() {
+        $*
+      }
+
+      _exec_log() {
+        _log $*
+        $*
+      }
+
+      _exec_log php occ config:system:set check_data_directory_permissions --type=boolean --value=false
+      _exec_log php occ config:system:set proxy --type=string --value=${NEXTCLOUD_PROXY}
+
+      # Installing apps
+      for app in ${NEXTCLOUD_APPS_2_INSTALL}; do
+          _exec_log php occ app:install $app
+          _exec_log php occ app:enable $app
+      done
+- apiVersion: v1
   kind: Secret
   metadata:
     annotations:
@@ -690,3 +732,45 @@ objects:
           namespace: ${DB_IMGSTR_NAMESPACE}
       type: ImageChange
     - type: ConfigChange
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    name: post-install
+  spec:
+    parallelism: 1
+    completions: 1
+    template:
+      metadata:
+        name: post-install
+      spec:
+        containers:
+        - name: post-install
+          image: docker.io/nextcloud:latest
+          command: ["bash",  "-c", "cd /var/www/html && /tmp/post-install.sh"]
+          volumeMounts:
+          - mountPath: /var/www/html
+            name: nextcloud-source
+          - mountPath: /var/www/html/data
+            name: nextcloud-data
+            subPath: data
+          - mountPath: /var/www/html/config
+            name: nextcloud-data
+            subPath: config
+          - mountPath: /var/www/html/custom_apps
+            name: nextcloud-data
+            subPath: apps
+          - mountPath: /tmp/post-install.sh
+            name: nextcloud-post-install-job
+            subPath: post-install.sh
+        volumes:
+        - name: nextcloud-source
+          persistentVolumeClaim:
+            claimName: nextcloud-source
+        - name: nextcloud-data
+          persistentVolumeClaim:
+            claimName: nextcloud-data
+        - name: nextcloud-post-install-job
+          configMap:
+            name: nextcloud-post-install-job
+            defaultMode: 0755
+        restartPolicy: OnFailure

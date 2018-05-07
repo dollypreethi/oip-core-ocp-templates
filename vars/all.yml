@@ -21,3 +21,4 @@ templates:
     template_label: nextcloud-mariadb
     template_name: nextcloud-mariadb
     storageclass: glusterfs-storage
+    nextcloud_apps: files_external sociallogin socialsharing_facebook socialsharing_twitter
