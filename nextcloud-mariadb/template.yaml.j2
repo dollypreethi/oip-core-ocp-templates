@@ -154,6 +154,8 @@ objects:
     annotations:
       template.openshift.io/expose-nextcloud_admin_username: '{.data[''nc-admin-username'']}'
       template.openshift.io/expose-nextcloud_admin_password: '{.data[''nc-admin-password'']}'
+    labels:
+      app: ${APP_NAME}
     name: ${APP_NAME}
   stringData:
     nc-admin-username: ${NEXTCLOUD_ADMIN_USER}
@@ -161,6 +163,8 @@ objects:
 - apiVersion: v1
   kind: PersistentVolumeClaim
   metadata:
+    labels:
+      app: ${APP_NAME}
     name: ${APP_NAME}-data
   spec:
     accessModes:
@@ -465,6 +469,8 @@ objects:
 - apiVersion: batch/v2alpha1
   kind: CronJob
   metadata:
+    labels:
+      app: ${APP_NAME}
     name: ${APP_NAME}-cron
   spec:
     concurrencyPolicy: Replace
@@ -527,6 +533,8 @@ objects:
 - apiVersion: v1
   kind: ConfigMap
   metadata:
+    labels:
+      app: ${APP_NAME}
     name: ${APP_NAME}-autoconfig
   data:
     autoconfig.php: |
@@ -567,6 +575,8 @@ objects:
 - apiVersion: v1
   kind: ConfigMap
   metadata:
+    labels:
+      app: ${APP_NAME}
     name: ${APP_NAME}-oip-defaults
   data:
     oip-defaults.config.php: |
@@ -583,6 +593,8 @@ objects:
       template.openshift.io/expose-password: '{.data[''database-password'']}'
       template.openshift.io/expose-root_password: '{.data[''database-root-password'']}'
       template.openshift.io/expose-username: '{.data[''database-user'']}'
+    labels:
+      app: ${APP_NAME}
     name: ${DATABASE_SERVICE_NAME}
   stringData:
     database-name: ${MYSQL_DATABASE}
@@ -594,6 +606,8 @@ objects:
   metadata:
     annotations:
       template.openshift.io/expose-uri: mysql://{.spec.clusterIP}:{.spec.ports[?(.name=="mariadb")].port}
+    labels:
+      app: ${APP_NAME}
     name: ${DATABASE_SERVICE_NAME}
   spec:
     ports:
@@ -604,6 +618,8 @@ objects:
 - apiVersion: v1
   kind: PersistentVolumeClaim
   metadata:
+    labels:
+      app: ${APP_NAME}
     name: ${DATABASE_SERVICE_NAME}
   spec:
     accessModes:
@@ -616,6 +632,8 @@ objects:
   metadata:
     annotations:
       template.alpha.openshift.io/wait-for-ready: "true"
+    labels:
+      app: ${APP_NAME}
     name: ${DATABASE_SERVICE_NAME}
   spec:
     replicas: 1
@@ -626,6 +644,7 @@ objects:
     template:
       metadata:
         labels:
+          app: ${APP_NAME}
           name: ${DATABASE_SERVICE_NAME}
       spec:
         containers:
