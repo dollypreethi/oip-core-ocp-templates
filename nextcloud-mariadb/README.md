@@ -2,6 +2,8 @@
 
 This template provides an open source alternative to [Dropbox](https://www.dropbox.com/) or [Box](https://www.box.com/) based on [Nextcloud](https://nextcloud.com/).
 
+[![Run on Openshift](../assets/images/run_on_openshift.png)](https://console.ocp.lab-nxtit.com/console/create?template=nextcloud-mariadb&templateParamsMap={"NGINX_DOCKERFILE_REPO"%3A"https%3A%2F%2Fgithub.com%2Foip-core%2Foip-core-ocp-templates.git"})
+
 ## Components privisioned
 
 | Components | Description |
