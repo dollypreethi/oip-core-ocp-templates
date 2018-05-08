@@ -37,14 +37,18 @@ metadata:
     template.openshift.io/documentation-url: "https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/blob/{{tmpl_vars['github']['branch']}}/${TEMPLATE_NAME}/README.md"
     template.openshift.io/support-url: "https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/issues"
 parameters:
-- name: TEMPLATE_NAME
-  description: Name of the template
-  required: true
-  value: nextcloud-mariadb
 - name: APP_NAME
   description: Name of the application
   required: true
   value: nextcloud
+- name: NGINX_DOCKERFILE_REPO
+  description: Nginx Dockerfile source repository
+  value: https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}.git
+  required: true
+- name: TEMPLATE_NAME
+  description: Name of the template
+  required: true
+  value: nextcloud-mariadb
 - name: NEXTCLOUD_HOST
   description: Application URL of Nextcloud (Route/host)
   required: false
@@ -54,9 +58,6 @@ parameters:
 - name: NEXTCLOUD_IMAGE_TAG
   description: Tag of the Nextcloud Docker Image to deploy
   value: 13-fpm
-- name: NGINX_DOCKERFILE_REPO
-  description: Nginx Dockerfile source repository
-  value: https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}.git
 - name: STORAGE_CLASS
   description: Storage class to use when claiming volume. It must support ReadWriteMany access mode.
   value: {{tmpl_vars['templates']['nextcloud-mariadb']['storageclass']}}
