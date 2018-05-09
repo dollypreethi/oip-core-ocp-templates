@@ -5,6 +5,7 @@ labels:
 message: |-
   The following service(s) have been created in your project: ${APP_NAME}, ${DATABASE_SERVICE_NAME}.
 
+    Deployment ID: ${DEPL_ID}
     ${APP_NAME}:
       Nextcloud admin username: ${NEXTCLOUD_ADMIN_USER}
       Nextcloud admin password: ${NEXTCLOUD_ADMIN_PASSWORD}
@@ -41,6 +42,11 @@ parameters:
   description: Name of the application
   required: true
   value: nextcloud
+- name: DEPL_ID
+  description: Deployment ID
+  required: true
+  from: '[a-z0-9]{5}'
+  generate: expression
 - name: NGINX_DOCKERFILE_REPO
   description: Nginx Dockerfile source repository
   value: https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}.git
@@ -155,8 +161,8 @@ objects:
       template.openshift.io/expose-nextcloud_admin_username: '{.data[''nc-admin-username'']}'
       template.openshift.io/expose-nextcloud_admin_password: '{.data[''nc-admin-password'']}'
     labels:
-      app: ${APP_NAME}
-    name: ${APP_NAME}
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-nextcloud-${DEPL_ID}
   stringData:
     nc-admin-username: ${NEXTCLOUD_ADMIN_USER}
     nc-admin-password: ${NEXTCLOUD_ADMIN_PASSWORD}
@@ -164,8 +170,8 @@ objects:
   kind: PersistentVolumeClaim
   metadata:
     labels:
-      app: ${APP_NAME}
-    name: ${APP_NAME}-data
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-nextcloud-data-${DEPL_ID}
   spec:
     accessModes:
     - ReadWriteMany
@@ -177,8 +183,8 @@ objects:
   kind: ImageStream
   metadata:
     labels:
-      app: ${APP_NAME}
-    name: ${APP_NAME}
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-nextcloud-${DEPL_ID}
   spec:
     tags:
     - annotations:
@@ -195,9 +201,9 @@ objects:
   kind: ImageStream
   metadata:
     labels:
-      build: nginx
-      app: ${APP_NAME}
-    name: nginx
+      build: ${APP_NAME}-nginx-${DEPL_ID}
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-nginx-${DEPL_ID}
   spec:
     tags:
     - annotations: null
@@ -214,14 +220,14 @@ objects:
   metadata:
     labels:
       build: nginx
-      app: ${APP_NAME}
-    name: nginx
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-nginx-${DEPL_ID}
   spec:
     nodeSelector: null
     output:
       to:
         kind: ImageStreamTag
-        name: nginx:latest
+        name: ${APP_NAME}-nginx-${DEPL_ID}:latest
     postCommit: {}
     resources: {}
     runPolicy: Serial
@@ -242,13 +248,13 @@ objects:
   kind: DeploymentConfig
   metadata:
     labels:
-      app: ${APP_NAME}
-    name: ${APP_NAME}
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-${DEPL_ID}
   spec:
     replicas: 1
     selector:
-      app: ${APP_NAME}
-      deploymentconfig: ${APP_NAME}
+      app: ${APP_NAME}-${DEPL_ID}
+      deploymentconfig: ${APP_NAME}-${DEPL_ID}
     strategy:
       activeDeadlineSeconds: 21600
       resources: {}
@@ -262,49 +268,52 @@ objects:
     template:
       metadata:
         labels:
-          app: ${APP_NAME}
-          deploymentconfig: ${APP_NAME}
+          app: ${APP_NAME}-${DEPL_ID}
+          deploymentconfig: ${APP_NAME}-${DEPL_ID}
       spec:
         containers:
-        - env:
+        - name: nextcloud
+          image: ${APP_NAME}-nextcloud-${DEPL_ID}
+          imagePullPolicy: Always
+          env:
           - name: NC_dbhost
-            value: mariadb
+            value: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
           - name: NC_dbuser
             valueFrom:
               secretKeyRef:
                 key: database-user
-                name: mariadb
+                name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
           - name: NC_dbpassword
             valueFrom:
               secretKeyRef:
                 key: database-password
-                name: mariadb
+                name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
           - name: NC_dbname
-            value: nextcloud
+            value: ${MYSQL_DATABASE}
           - name: MYSQL_HOST
-            value: mariadb
+            value: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
           - name: MYSQL_DATABASE
-            value: nextcloud
+            value: ${MYSQL_DATABASE}
           - name: MYSQL_USER
             valueFrom:
               secretKeyRef:
                 key: database-user
-                name: mariadb
+                name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
           - name: MYSQL_PASSWORD
             valueFrom:
               secretKeyRef:
                 key: database-password
-                name: mariadb
+                name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
           - name: NEXTCLOUD_ADMIN_USER
             valueFrom:
               secretKeyRef:
                 key: nc-admin-username
-                name: ${APP_NAME}
+                name: ${APP_NAME}-nextcloud-${DEPL_ID}
           - name: NEXTCLOUD_ADMIN_PASSWORD
             valueFrom:
               secretKeyRef:
                 key: nc-admin-password
-                name: ${APP_NAME}
+                name: ${APP_NAME}-nextcloud-${DEPL_ID}
           - name: HTTP_PROXY
             value: ${HTTP_PROXY}
           - name: HTTPS_PROXY
@@ -317,8 +326,6 @@ objects:
             value: ${HTTPS_PROXY}
           - name: no_proxy
             value: ${NO_PROXY}
-          image: ${APP_NAME}
-          imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 3
             initialDelaySeconds: 1
@@ -327,7 +334,6 @@ objects:
             tcpSocket:
               port: 9000
             timeoutSeconds: 5
-          name: ${APP_NAME}
           ports:
           - containerPort: 9000
             protocol: TCP
@@ -359,7 +365,8 @@ objects:
           - mountPath: /var/www/html/config/oip-defaults.config.php
             name: ${APP_NAME}-oip-defaults
             subPath: oip-defaults.config.php
-        - image: nginx
+        - name: nginx
+          image: ${APP_NAME}-nginx-${DEPL_ID}
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 3
@@ -369,7 +376,6 @@ objects:
             tcpSocket:
               port: 8080
             timeoutSeconds: 1
-          name: nginx
           ports:
           - containerPort: 8080
             protocol: TCP
@@ -400,17 +406,17 @@ objects:
         securityContext: {}
         terminationGracePeriodSeconds: 30
         volumes:
-        - emptyDir: {}
-          name: ${APP_NAME}-source
+        - name: ${APP_NAME}-source
+          emptyDir: {}
         - name: ${APP_NAME}-data
           persistentVolumeClaim:
-            claimName: ${APP_NAME}-data
+            claimName: ${APP_NAME}-nextcloud-data-${DEPL_ID}
         - name: ${APP_NAME}-autoconfig
           configMap:
-            name: ${APP_NAME}-autoconfig
+            name: cm-${APP_NAME}-nextcloud-autoconfig-${DEPL_ID}
         - name: ${APP_NAME}-oip-defaults
           configMap:
-            name: ${APP_NAME}-oip-defaults
+            name: cm-${APP_NAME}-nextcloud-oip-defaults-${DEPL_ID}
     test: false
     triggers:
     - imageChangeParams:
@@ -419,7 +425,7 @@ objects:
         - nextcloud
         from:
           kind: ImageStreamTag
-          name: ${APP_NAME}:${NEXTCLOUD_IMAGE_TAG}
+          name: ${APP_NAME}-nextcloud-${DEPL_ID}:${NEXTCLOUD_IMAGE_TAG}
       type: ImageChange
     - imageChangeParams:
         automatic: true
@@ -427,15 +433,15 @@ objects:
         - nginx
         from:
           kind: ImageStreamTag
-          name: nginx:latest
+          name: ${APP_NAME}-nginx-${DEPL_ID}:latest
       type: ImageChange
     - type: ConfigChange
 - apiVersion: v1
   kind: Service
   metadata:
     labels:
-      app: ${APP_NAME}
-    name: ${APP_NAME}
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-${DEPL_ID}
   spec:
     ports:
     - name: 8080-tcp
@@ -443,8 +449,8 @@ objects:
       protocol: TCP
       targetPort: 8080
     selector:
-      app: ${APP_NAME}
-      deploymentconfig: ${APP_NAME}
+      app: ${APP_NAME}-${DEPL_ID}
+      deploymentconfig: ${APP_NAME}-${DEPL_ID}
     sessionAffinity: None
     type: ClusterIP
 - apiVersion: v1
@@ -452,7 +458,9 @@ objects:
   metadata:
     annotations:
       kubernetes.io/tls-acme: "true"
-    name: ${APP_NAME}
+    labels:
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-${DEPL_ID}
   spec:
     host: ${NEXTCLOUD_HOST}
     port:
@@ -462,15 +470,15 @@ objects:
       termination: edge
     to:
       kind: Service
-      name: ${APP_NAME}
+      name: ${APP_NAME}-${DEPL_ID}
       weight: 100
     wildcardPolicy: None
 - apiVersion: batch/v2alpha1
   kind: CronJob
   metadata:
     labels:
-      app: ${APP_NAME}
-    name: ${APP_NAME}-cron
+      app: ${APP_NAME}-${DEPL_ID}
+    name: cron-${APP_NAME}-nextcloud-${DEPL_ID}
   spec:
     concurrencyPolicy: Replace
     jobTemplate:
@@ -481,28 +489,28 @@ objects:
         template:
           spec:
             containers:
-            - args:
+            - name: nextcloud-cron
+              image: ${APP_NAME}-nextcloud-${DEPL_ID}:${NEXTCLOUD_IMAGE_TAG}
+              imagePullPolicy: Always
+              args:
               - php
               - -f
               - /var/www/html/cron.php
               env:
               - name: NC_dbhost
-                value: mariadb
+                value: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
               - name: NC_dbuser
                 valueFrom:
                   secretKeyRef:
                     key: database-user
-                    name: mariadb
+                    name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
               - name: NC_dbpassword
                 valueFrom:
                   secretKeyRef:
                     key: database-password
-                    name: mariadb
+                    name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
               - name: NC_dbname
                 value: nextcloud
-              image: ${APP_NAME}:${NEXTCLOUD_IMAGE_TAG}
-              imagePullPolicy: Always
-              name: ${APP_NAME}-cron
               resources: {}
               terminationMessagePath: /dev/termination-log
               volumeMounts:
@@ -522,19 +530,19 @@ objects:
             securityContext: {}
             terminationGracePeriodSeconds: 30
             volumes:
-            - emptyDir: {}
-              name: ${APP_NAME}-source
+            - name: ${APP_NAME}-source
+              emptyDir: {}
             - name: ${APP_NAME}-data
               persistentVolumeClaim:
-                claimName: ${APP_NAME}-data
+                claimName: ${APP_NAME}-nextcloud-data-${DEPL_ID}
     schedule: '*/15 * * * *'
     suspend: false
 - apiVersion: v1
   kind: ConfigMap
   metadata:
     labels:
-      app: ${APP_NAME}
-    name: ${APP_NAME}-autoconfig
+      app: ${APP_NAME}-${DEPL_ID}
+    name: cm-${APP_NAME}-nextcloud-autoconfig-${DEPL_ID}
   data:
     autoconfig.php: |
       <?php
@@ -575,8 +583,8 @@ objects:
   kind: ConfigMap
   metadata:
     labels:
-      app: ${APP_NAME}
-    name: ${APP_NAME}-oip-defaults
+      app: ${APP_NAME}-${DEPL_ID}
+    name: cm-${APP_NAME}-nextcloud-oip-defaults-${DEPL_ID}
   data:
     oip-defaults.config.php: |
       <?php
@@ -593,8 +601,8 @@ objects:
       template.openshift.io/expose-root_password: '{.data[''database-root-password'']}'
       template.openshift.io/expose-username: '{.data[''database-user'']}'
     labels:
-      app: ${APP_NAME}
-    name: ${DATABASE_SERVICE_NAME}
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
   stringData:
     database-name: ${MYSQL_DATABASE}
     database-password: ${MYSQL_PASSWORD}
@@ -606,20 +614,20 @@ objects:
     annotations:
       template.openshift.io/expose-uri: mysql://{.spec.clusterIP}:{.spec.ports[?(.name=="mariadb")].port}
     labels:
-      app: ${APP_NAME}
-    name: ${DATABASE_SERVICE_NAME}
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
   spec:
     ports:
     - name: mariadb
       port: 3306
     selector:
-      name: ${DATABASE_SERVICE_NAME}
+      name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
 - apiVersion: v1
   kind: PersistentVolumeClaim
   metadata:
     labels:
-      app: ${APP_NAME}
-    name: ${DATABASE_SERVICE_NAME}
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
   spec:
     accessModes:
     - ReadWriteOnce
@@ -632,50 +640,50 @@ objects:
     annotations:
       template.alpha.openshift.io/wait-for-ready: "true"
     labels:
-      app: ${APP_NAME}
-    name: ${DATABASE_SERVICE_NAME}
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
   spec:
     replicas: 1
     selector:
-      name: ${DATABASE_SERVICE_NAME}
+      name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
     strategy:
       type: Recreate
     template:
       metadata:
         labels:
-          app: ${APP_NAME}
-          name: ${DATABASE_SERVICE_NAME}
+          app: ${APP_NAME}-${DEPL_ID}
+          name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
       spec:
         containers:
-        - env:
+        - name: mariadb
+          image: ' '
+          imagePullPolicy: IfNotPresent
+          env:
           - name: MYSQL_USER
             valueFrom:
               secretKeyRef:
                 key: database-user
-                name: ${DATABASE_SERVICE_NAME}
+                name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
           - name: MYSQL_PASSWORD
             valueFrom:
               secretKeyRef:
                 key: database-password
-                name: ${DATABASE_SERVICE_NAME}
+                name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
           - name: MYSQL_ROOT_PASSWORD
             valueFrom:
               secretKeyRef:
                 key: database-root-password
-                name: ${DATABASE_SERVICE_NAME}
+                name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
           - name: MYSQL_DATABASE
             valueFrom:
               secretKeyRef:
                 key: database-name
-                name: ${DATABASE_SERVICE_NAME}
-          image: ' '
-          imagePullPolicy: IfNotPresent
+                name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
           livenessProbe:
             initialDelaySeconds: 30
             tcpSocket:
               port: 3306
             timeoutSeconds: 1
-          name: mariadb
           ports:
           - containerPort: 3306
           readinessProbe:
@@ -697,7 +705,7 @@ objects:
         volumes:
         - name: ${DATABASE_SERVICE_NAME}-data
           persistentVolumeClaim:
-            claimName: ${DATABASE_SERVICE_NAME}
+            claimName: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
     triggers:
     - imageChangeParams:
         automatic: true
