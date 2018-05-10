@@ -239,25 +239,6 @@ objects:
         type: ""
 
 - apiVersion: v1
-  kind: ImageStream
-  metadata:
-    labels:
-      app: ${APP_NAME}-${DEPL_ID}
-    name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
-  spec:
-    tags:
-    - annotations:
-        openshift.io/imported-from: ${DB_IMAGE}:${DB_IMAGE_TAG}
-      from:
-        kind: DockerImage
-        name: ${DB_IMAGE}:${DB_IMAGE_TAG}
-      importPolicy:
-        scheduled: true
-      name: ${DB_IMAGE_TAG}
-      referencePolicy:
-        type: Source
-
-- apiVersion: v1
   kind: BuildConfig
   metadata:
     labels:
