@@ -517,7 +517,9 @@ objects:
           spec:
             containers:
             - name: nextcloud-cron
-              image: ${APP_NAME}-nextcloud-${DEPL_ID}:${NEXTCLOUD_IMAGE_TAG}
+              #TODO: Fix imagepullerror when using imagestream
+              # image: ${APP_NAME}-nextcloud-${DEPL_ID}:${NEXTCLOUD_IMAGE_TAG}
+              image: ${NEXTCLOUD_IMAGE}:${NEXTCLOUD_IMAGE_TAG}
               imagePullPolicy: Always
               args:
               - php
