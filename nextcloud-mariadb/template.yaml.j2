@@ -111,6 +111,12 @@ parameters:
   required: false
   value: {{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}
 # Database
+- name: DB_IMAGE
+  description: Database image to deploy. Currently support only mariadb and mysql
+  value: docker.io/mariadb
+- name: DB_IMAGE_TAG
+  description: Tag of the Docker DB Image to deploy
+  value: '10.1'
 - description: Maximum amount of memory the database container can use.
   displayName: Database Memory Limit
   name: DB_MEMORY_LIMIT
@@ -215,6 +221,24 @@ objects:
       name: latest
       referencePolicy:
         type: ""
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
+  spec:
+    tags:
+    - annotations:
+        openshift.io/imported-from: ${DB_IMAGE}:${DB_IMAGE_TAG}
+      from:
+        kind: DockerImage
+        name: ${DB_IMAGE}:${DB_IMAGE_TAG}
+      importPolicy:
+        scheduled: true
+      name: ${DB_IMAGE_TAG}
+      referencePolicy:
+        type: Source
 - apiVersion: v1
   kind: BuildConfig
   metadata:
