@@ -37,7 +37,15 @@ metadata:
     template.openshift.io/provider-display-name: OIP by ITisOpen, Inc.
     template.openshift.io/documentation-url: "https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/blob/{{tmpl_vars['github']['branch']}}/${TEMPLATE_NAME}/README.md"
     template.openshift.io/support-url: "https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/issues"
+
+
 parameters:
+
+# Global parameters
+- name: TEMPLATE_NAME
+  description: Name of the template
+  required: true
+  value: nextcloud-mariadb
 - name: APP_NAME
   description: Name of the application
   required: true
@@ -47,14 +55,24 @@ parameters:
   required: true
   from: '[a-z0-9]{5}'
   generate: expression
+
+# Nextcloud specific
+- name: NEXTCLOUD_ADMIN_USER
+  description: Username for Nextcloud user that will be granted admin privileges.
+  displayName: Nextcloud Connection Admin Username
+  from: admin[A-Z0-9]{3}
+  generate: expression
+  required: true
+- name: NEXTCLOUD_ADMIN_PASSWORD
+  description: Password for the Nextcloud admin user.
+  displayName: Nextcloud Connection Admin Password
+  from: '[a-zA-Z0-9]{16}'
+  generate: expression
+  required: true
 - name: NGINX_DOCKERFILE_REPO
   description: Nginx Dockerfile source repository
   value: https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}.git
   required: true
-- name: TEMPLATE_NAME
-  description: Name of the template
-  required: true
-  value: nextcloud-mariadb
 - name: NEXTCLOUD_HOST
   description: Application URL of Nextcloud (Route/host)
   required: false
@@ -70,6 +88,12 @@ parameters:
 - name: PVC_SIZE
   description: PVC size for Apps, Config and Data
   value: 5Gi
+- name: NEXTCLOUD_PROXY
+  description: http proxy to use for Nextcloud to connect to internet, if any
+  required: false
+  value: {{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}
+
+# Proxy settings
 - name: HTTP_PROXY
   description: http proxy to use to connect to internet, if any
   required: false
@@ -94,22 +118,7 @@ parameters:
   description: http proxy exclusion list, if proxy is configured
   required: false
   value: {{tmpl_vars['http_proxy']['no_proxy']}}
-- name: NEXTCLOUD_ADMIN_USER
-  description: Username for Nextcloud user that will be granted admin privileges.
-  displayName: Nextcloud Connection Admin Username
-  from: admin[A-Z0-9]{3}
-  generate: expression
-  required: true
-- name: NEXTCLOUD_ADMIN_PASSWORD
-  description: Password for the Nextcloud admin user.
-  displayName: Nextcloud Connection Admin Password
-  from: '[a-zA-Z0-9]{16}'
-  generate: expression
-  required: true
-- name: NEXTCLOUD_PROXY
-  description: http proxy to use for Nextcloud to connect to internet, if any
-  required: false
-  value: {{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}
+
 # Database
 - name: DB_IMAGE
   description: Database image to deploy. Currently support only mariadb and mysql
@@ -159,7 +168,11 @@ parameters:
   name: DB_VOLUME_CAPACITY
   required: true
   value: 1Gi
+
+
+
 objects:
+
 - apiVersion: v1
   kind: Secret
   metadata:
@@ -172,6 +185,7 @@ objects:
   stringData:
     nc-admin-username: ${NEXTCLOUD_ADMIN_USER}
     nc-admin-password: ${NEXTCLOUD_ADMIN_PASSWORD}
+
 - apiVersion: v1
   kind: PersistentVolumeClaim
   metadata:
@@ -185,6 +199,7 @@ objects:
       requests:
         storage: ${PVC_SIZE}
     storageClassName: ${STORAGE_CLASS}
+
 - apiVersion: v1
   kind: ImageStream
   metadata:
@@ -203,6 +218,7 @@ objects:
       name: ${NEXTCLOUD_IMAGE_TAG}
       referencePolicy:
         type: Source
+
 - apiVersion: v1
   kind: ImageStream
   metadata:
@@ -221,6 +237,7 @@ objects:
       name: latest
       referencePolicy:
         type: ""
+
 - apiVersion: v1
   kind: ImageStream
   metadata:
@@ -239,6 +256,7 @@ objects:
       name: ${DB_IMAGE_TAG}
       referencePolicy:
         type: Source
+
 - apiVersion: v1
   kind: BuildConfig
   metadata:
@@ -268,6 +286,7 @@ objects:
       type: Docker
     triggers:
     - type: ConfigChange
+
 - apiVersion: v1
   kind: DeploymentConfig
   metadata:
@@ -460,6 +479,7 @@ objects:
           name: ${APP_NAME}-nginx-${DEPL_ID}:latest
       type: ImageChange
     - type: ConfigChange
+
 - apiVersion: v1
   kind: Service
   metadata:
@@ -477,6 +497,7 @@ objects:
       deploymentconfig: ${APP_NAME}-${DEPL_ID}
     sessionAffinity: None
     type: ClusterIP
+
 - apiVersion: v1
   kind: Route
   metadata:
@@ -497,6 +518,7 @@ objects:
       name: ${APP_NAME}-${DEPL_ID}
       weight: 100
     wildcardPolicy: None
+
 - apiVersion: batch/v2alpha1
   kind: CronJob
   metadata:
@@ -561,6 +583,7 @@ objects:
                 claimName: ${APP_NAME}-nextcloud-data-${DEPL_ID}
     schedule: '*/15 * * * *'
     suspend: false
+
 - apiVersion: v1
   kind: ConfigMap
   metadata:
@@ -603,6 +626,7 @@ objects:
               $AUTOCONFIG["adminpass"] = getenv('NEXTCLOUD_ADMIN_PASSWORD');
           }
       }
+
 - apiVersion: v1
   kind: ConfigMap
   metadata:
@@ -616,6 +640,7 @@ objects:
           'check_data_directory_permissions' => false,
           'proxy' => '${NEXTCLOUD_PROXY}',
       );
+
 - apiVersion: v1
   kind: Secret
   metadata:
@@ -632,6 +657,7 @@ objects:
     database-password: ${MYSQL_PASSWORD}
     database-root-password: ${MYSQL_ROOT_PASSWORD}
     database-user: ${MYSQL_USER}
+
 - apiVersion: v1
   kind: Service
   metadata:
@@ -646,6 +672,7 @@ objects:
       port: 3306
     selector:
       name: ${APP_NAME}-${DATABASE_SERVICE_NAME}-${DEPL_ID}
+
 - apiVersion: v1
   kind: PersistentVolumeClaim
   metadata:
@@ -658,6 +685,7 @@ objects:
     resources:
       requests:
         storage: ${DB_VOLUME_CAPACITY}
+
 - apiVersion: v1
   kind: DeploymentConfig
   metadata:
