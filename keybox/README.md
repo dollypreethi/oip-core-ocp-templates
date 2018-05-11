@@ -69,5 +69,10 @@ This will only be done occasionally. So if it's not done in time, feel
 free to send a PR - this can speed up things.
 
 
+# TODO
+- check other docker images that use env var for config
+  - [garywiz/docker-keybox](https://github.com/garywiz/docker-keybox)
+  - [maltyxx/docker-keybox](https://github.com/maltyxx/docker-keybox)
+
 # Credits
 - Base source from [tobru/keybox-openshift](https://github.com/tobru/keybox-openshift)
