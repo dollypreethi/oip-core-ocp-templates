@@ -1,3 +1,7 @@
+# Site-specific
+oip_env:
+  provider: "OIP by ITisOpen, Inc."
+
 # Global variables
 private_dns_domain: prd.lab-nxtit.priv
 
@@ -20,4 +24,18 @@ templates:
   nextcloud-mariadb:
     template_label: nextcloud-mariadb
     template_name: nextcloud-mariadb
+    display_name: "Nextcloud (MariaDB Persistence)"
+    storageclass: glusterfs-storage
+  oidc-ize:
+    template_label: oidc-ize
+    template_name: oidc-ize
+    display_name: oidc-ize
+    template_desc: |-
+      Run the specified docker image protecting it with an Open ID Connect side-car container.
+      For more information about using this template, including OpenShift considerations, see https://github.com/{{vars['tmpl_vars']['github']['org']}}/{{vars['tmpl_vars']['github']['repo']}}/blob/{{vars['tmpl_vars']['github']['branch']}}/{{vars['tmpl_vars']['templates']['oidc-ize']['template_name']}}/
+    toi_long_desc:  |-
+      Run the specified docker image protecting it with an Open ID Connect side-car container.
+      For more information about using this template, including OpenShift considerations, see https://github.com/{{vars['tmpl_vars']['github']['org']}}/{{vars['tmpl_vars']['github']['repo']}}/blob/{{vars['tmpl_vars']['github']['branch']}}/{{vars['tmpl_vars']['templates']['oidc-ize']['template_name']}}/
+    tags: security
+    iconClass: fa fa-cloud-upload
     storageclass: glusterfs-storage

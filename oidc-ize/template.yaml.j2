@@ -1,0 +1,297 @@
+NAMEapiVersion: v1
+kind: Template
+labels:
+  template: {{tmpl_vars['templates']['oidc-ize']['template_label']}}
+message: |-
+  The following service(s) have been created in your project: ${NAME}.
+
+  For more information about using this template, including OpenShift considerations, see https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/blob/{{tmpl_vars['github']['branch']}}/{{tmpl_vars['templates']['oidc-ize']['template_name']}}/
+
+metadata:
+  name: {{tmpl_vars['templates']['oidc-ize']['template_name']}}
+  annotations:
+    description: |-
+      {{tmpl_vars['templates']['oidc-ize']['template_desc'] | indent( width=6, indentfirst=False)}}
+    tags: {{tmpl_vars['templates']['oidc-ize']['tags']}}
+    iconClass: {{tmpl_vars['templates']['oidc-ize']['iconClass']}}
+    openshift.io/display-name: {{tmpl_vars['templates']['oidc-ize']['display_name']}}
+    template.openshift.io/long-description: |-
+      {{tmpl_vars['templates']['oidc-ize']['toi_long_desc'] | indent( width=6, indentfirst=False)}}
+    template.openshift.io/provider-display-name: {{tmpl_vars['oip_env']['provider']}}
+    template.openshift.io/documentation-url: "https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/blob/{{tmpl_vars['github']['branch']}}/{{tmpl_vars['templates']['oidc-ize']['template_name']}}/README.md"
+    template.openshift.io/support-url: "https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/issues"
+
+
+
+objects:
+- kind: ConfigMap
+  apiVersion: v1
+  labels:
+    app: ${NAME}
+  metadata:
+    name: ${NAME}-nginx-config
+  data:
+    app-nginx.conf: |
+      lua_package_path '~/lua/?.lua;;';
+      lua_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+      lua_ssl_verify_depth 5;
+
+      # cache for discovery metadata documents
+      lua_shared_dict discovery 1m;
+      # cache for JWKs
+      lua_shared_dict jwks 1m;
+
+      sendfile        on;
+      keepalive_timeout  65;
+
+      server {
+        listen 8080;
+
+        location / {
+          #manual
+          #resolver 172.18.56.2 ipv6=off valid=300;
+
+          access_by_lua_block {
+            local opts = {
+               -- the full redirect URI must be protected by this script and becomes:
+               -- ngx.var.scheme.."://"..ngx.var.http_host..opts.redirect_uri_path
+               -- unless the scheme is overridden using opts.redirect_uri_scheme or an X-Forwarded-Proto header in the incoming request
+               redirect_uri_path = "/redirect_uri",
+               -- discovery = "https://accounts.google.com/.well-known/openid-configuration",
+               -- client_id = "<client_id>",
+               -- client_secret = "<client_secret>"
+               discovery = $(OIDC_DISCOVERY),
+               client_id = $(OIDC_CLIENT_ID),
+               client_secret = $(OIDC_CLIENT_SECRET),
+               --authorization_params = { hd="zmartzone.eu" },
+               --scope = "openid email profile",
+               -- Refresh the users id_token after 900 seconds without requiring re-authentication
+               --refresh_session_interval = 900,
+               --iat_slack = 600,
+               --redirect_uri_scheme = "https",
+               --logout_path = "/logout",
+               --redirect_after_logout_uri = "/",
+               --redirect_after_logout_with_id_token_hint = true,
+               --token_endpoint_auth_method = ["client_secret_basic"|"client_secret_post"],
+               --ssl_verify = "no"
+
+               --accept_none_alg = false
+               -- if your OpenID Connect Provider doesn't sign its id tokens
+               -- (uses the "none" signature algorithm) then set this to true.
+
+               --accept_unsupported_alg = true
+               -- if you want to reject tokens signed using an algorithm
+               -- not supported by lua-resty-jwt set this to false. If
+               -- you leave it unset or set it to true, the token signature will not be
+               -- verified when an unsupported algorithm is used.
+
+               --renew_access_token_on_expiry = true
+               -- whether this plugin shall try to silently renew the access token once it is expired if a refresh token is available.
+               -- if it fails to renew the token, the user will be redirected to the authorization endpoint.
+               --access_token_expires_in = 3600
+               -- Default lifetime in seconds of the access_token if no expires_in attribute is present in the token endpoint response.
+
+               --access_token_expires_leeway = 0
+               --  Expiration leeway for access_token renewal. If this is set, renewal will happen access_token_expires_leeway seconds before the token expiration. This avoids errors in case the access_token just expires when arriving to the OAuth Resource Server.
+
+               --force_reauthorize = false
+               -- When force_reauthorize is set to true the authorization flow will be executed even if a token has been cached already
+               --session_contents = {id_token=true}
+               -- Whitelist of session content to enable. This can be used to reduce the session size.
+               -- When not set everything will be included in the session.
+               -- Available are:
+               -- id_token, enc_id_token, user, access_token (includes refresh token)
+
+               -- You can specify timeouts for connect/send/read as a single number (setting all timeouts) or as a table. Values are in milliseconds
+               -- timeout = 1000
+               -- timeout = { connect = 500, send = 1000, read = 1000 }
+
+               -- Optional : use outgoing proxy to the OpenID Connect provider endpoints with the proxy_opts table :
+               -- this requires lua-resty-http >= 0.12
+               -- proxy_opts = {
+               --    http_proxy  = $ENV{"http_proxy"},
+               --    https_proxy = $ENV{"https_proxy"}
+               -- }
+               proxy_opts = {
+                  http_proxy  = {{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}},
+                  https_proxy  = {{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}},
+                  no_proxy = {{tmpl_vars['http_proxy']['no_proxy']}}
+               }
+               --scope = "openid email profile"
+
+            }
+
+            -- call authenticate for OpenID Connect user authentication
+            local res, err = require("resty.openidc").authenticate(opts)
+
+            if err then
+              ngx.status = 500
+              ngx.say(err)
+              ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
+            end
+
+            -- at this point res is a Lua table with 3 keys:
+            --   id_token    : a Lua table with the claims from the id_token (required)
+            --   access_token: the access token (optional)
+            --   user        : a Lua table with the claims returned from the user info endpoint (optional)
+
+            --if res.id_token.hd ~= "zmartzone.eu" then
+            --  ngx.exit(ngx.HTTP_FORBIDDEN)
+            --end
+
+            --if res.user.email ~= "hans.zandbelt@zmartzone.eu" then
+            --  ngx.exit(ngx.HTTP_FORBIDDEN)
+            --end
+
+            -- set headers with user info: this will overwrite any existing headers
+            -- but also scrub(!) them in case no value is provided in the token
+            ngx.req.set_header("X-USER", res.id_token.sub)
+          }
+
+          # proxy authorized traffic to backend app
+          proxy_pass http://localhost:${CONTAINER_PORT}/;
+        }
+      }
+
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      build: ${NAME}-sidecar
+      app: ${NAME}
+    name: ${NAME}-sidecar
+
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    annotations:
+      template.alpha.openshift.io/wait-for-ready: "true"
+    labels:
+      build: ${NAME}-sidecar
+      app: ${NAME}
+    name: ${NAME}-sidecar
+  spec:
+    nodeSelector: null
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${NAME}-sidecar:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: Serial
+    source:
+      git:
+        uri: ${GH_SOURCE_REPO}
+      contextDir: {{tmpl_vars['templates']['oidc-ize']['template_name']}}
+      type: Git
+    strategy:
+      dockerStrategy:
+        from:
+          kind: DockerImage
+          name: openresty/openresty:alpine-fat
+      type: Docker
+    triggers:
+    - type: ConfigChange
+
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      app: ${NAME}
+    name: ${NAME}
+  spec:
+    replicas: 1
+    selector:
+      app: ${NAME}
+      deploymentconfig: ${NAME}
+    template:
+      metadata:
+        labels:
+          app: ${NAME}
+          deploymentconfig: ${NAME}
+      spec:
+        containers:
+        - image: ${DOCKER_IMAGE}
+          imagePullPolicy: Always
+          name: application
+          ports:
+          - containerPort: "${CONTAINER_PORT}"
+            protocol: TCP
+          terminationMessagePath: /dev/termination-log
+        - image: twalter/openshift-nginx:stable-alpine
+          imagePullPolicy: Always
+          name: nginx
+          ports:
+          - containerPort: 8090
+            protocol: TCP
+          volumeMounts:
+          - mountPath: /etc/nginx/conf.d/
+            name: nginx-config-volume
+        volumes:
+        - name: nginx-config-volume
+          configMap:
+            defaultMode: 420
+            name: ${NAME}-nginx-config
+    triggers: {}
+
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app: ${NAME}
+    name: ${NAME}
+  spec:
+    ports:
+    - port: 8090
+      protocol: TCP
+      targetPort: 8090
+      name: http
+    selector:
+      app: ${NAME}
+      deploymentconfig: ${NAME}
+
+- apiVersion: v1
+  kind: Route
+  metadata:
+    annotations:
+      kubernetes.io/tls-acme: ${TLS_ACME}
+    labels:
+      app: ${NAME}
+    name: ${NAME}
+  spec:
+    port:
+      targetPort: 8090-tcp
+    tls:
+      insecureEdgeTerminationPolicy: Redirect
+      termination: edge
+    to:
+      kind: Service
+      name: ${NAME}
+
+
+
+parameters:
+- name: NAME
+  description: The name for the deployment config, service and route
+  required: true
+- name: DOCKER_IMAGE
+  description: The reference to the docker image to protect using oidc-ize
+  required: true
+- name: CONTAINER_PORT
+  description: The port which will be exposed as service and route
+  value: "8080"
+- name: TLS_ACME
+  description: Generate an SSL/TLS certificate using kubernetes.io/tls-acme?
+  value: 'true'
+- name: OIDC_DISCOVERY
+  description: Value for Open ID Connect discovery parameter
+  value: "https://idp01.tpsarctriton.sbx-aas.gotocloud.io:9443/auth/realms/GreenAirlines/.well-known/openid-configuration"
+- name: OIDC_CLIEND_ID
+  description: Value for Open ID Connect client-id parameter
+  value: "greenairlines-secure"
+- name: OIDC_CLIENT_SECRET
+  description: Value for Open ID Connect client-secret parameter
+  value: "da0e405b-d12a-4380-bc9b-67fcd9f521a0"
+- name: GH_SOURCE_REPO
+  description: Repo containing your app source
+  value: https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}.git
