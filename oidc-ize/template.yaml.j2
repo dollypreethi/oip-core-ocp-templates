@@ -26,10 +26,10 @@ metadata:
 objects:
 - kind: ConfigMap
   apiVersion: v1
-  labels:
-    app: ${NAME}
   metadata:
-    name: ${NAME}-nginx-config
+    labels:
+      app: ${NAME}-${DEPL_ID}
+    name: ${NAME}-${DEPL_ID}-nginx-config
   data:
     app-nginx.conf: |
       lua_package_path '~/lua/?.lua;;';
@@ -41,8 +41,8 @@ objects:
       # cache for JWKs
       lua_shared_dict jwks 1m;
 
-      sendfile        on;
-      keepalive_timeout  65;
+      #sendfile        on;
+      #keepalive_timeout  65;
 
       server {
         listen 8080;
@@ -157,35 +157,67 @@ objects:
   kind: ImageStream
   metadata:
     labels:
-      build: ${NAME}-sidecar
-      app: ${NAME}
-    name: ${NAME}-sidecar
+      build: ${NAME}-${DEPL_ID}-sidecar
+      app: ${NAME}-${DEPL_ID}
+    name: ${NAME}-${DEPL_ID}-sidecar
+
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    annotations:
+      description: Keeps track of changes in the application image
+    labels:
+      build: ${NAME}-${DEPL_ID}-application
+      app: ${NAME}-${DEPL_ID}
+    name: ${NAME}-${DEPL_ID}-application
+  spec:
+    tags:
+    - annotations: null
+      from:
+        kind: DockerImage
+        name: ${DOCKER_IMAGE}
+      generation: null
+      importPolicy: {}
+      name: latest
+      referencePolicy:
+        type: ""
 
 - apiVersion: v1
   kind: BuildConfig
   metadata:
-    annotations:
-      template.alpha.openshift.io/wait-for-ready: "true"
+    #annotations:
+    #  template.alpha.openshift.io/wait-for-ready: "true"
     labels:
-      build: ${NAME}-sidecar
-      app: ${NAME}
-    name: ${NAME}-sidecar
+      build: ${NAME}-${DEPL_ID}-sidecar
+      app: ${NAME}-${DEPL_ID}
+    name: ${NAME}-${DEPL_ID}-sidecar
   spec:
     nodeSelector: null
     output:
       to:
         kind: ImageStreamTag
-        name: ${NAME}-sidecar:latest
+        name: ${NAME}-${DEPL_ID}-sidecar:latest
     postCommit: {}
     resources: {}
     runPolicy: Serial
     source:
       git:
         uri: ${GH_SOURCE_REPO}
+        httpProxy: '{{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}'
+        httpsProxy: '{{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}'
       contextDir: {{tmpl_vars['templates']['oidc-ize']['template_name']}}
       type: Git
     strategy:
       dockerStrategy:
+        env:
+          - name: HTTPS_PROXY
+            value: '{{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}'
+          - name: HTTP_PROXY
+            value: '{{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}'
+          - name: https_proxy
+            value: '{{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}'
+          - name: http_proxy
+            value: '{{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}'
         from:
           kind: DockerImage
           name: openresty/openresty:alpine-fat
@@ -197,18 +229,18 @@ objects:
   kind: DeploymentConfig
   metadata:
     labels:
-      app: ${NAME}
-    name: ${NAME}
+      app: ${NAME}-${DEPL_ID}
+    name: ${NAME}-${DEPL_ID}
   spec:
     replicas: 1
     selector:
-      app: ${NAME}
-      deploymentconfig: ${NAME}
+      app: ${NAME}-${DEPL_ID}
+      deploymentconfig: ${NAME}-${DEPL_ID}
     template:
       metadata:
         labels:
-          app: ${NAME}
-          deploymentconfig: ${NAME}
+          app: ${NAME}-${DEPL_ID}
+          deploymentconfig: ${NAME}-${DEPL_ID}
       spec:
         containers:
         - image: ${DOCKER_IMAGE}
@@ -218,9 +250,10 @@ objects:
           - containerPort: "${CONTAINER_PORT}"
             protocol: TCP
           terminationMessagePath: /dev/termination-log
-        - image: twalter/openshift-nginx:stable-alpine
+        #- image: ${NAME}-${DEPL_ID}-sidecar
+        - image: ' '
           imagePullPolicy: Always
-          name: nginx
+          name: sidecar-nginx-oidc
           ports:
           - containerPort: 8090
             protocol: TCP
@@ -231,15 +264,32 @@ objects:
         - name: nginx-config-volume
           configMap:
             defaultMode: 420
-            name: ${NAME}-nginx-config
-    triggers: {}
+            name: ${NAME}-${DEPL_ID}-nginx-config
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - sidecar-nginx-oidc
+        from:
+          kind: ImageStreamTag
+          name: ${NAME}-${DEPL_ID}-sidecar:latest
+      type: ImageChange
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - application
+        from:
+          kind: ImageStreamTag
+          name: ${NAME}-${DEPL_ID}-application:latest
+      type: ImageChange
+    - type: ConfigChange
 
 - apiVersion: v1
   kind: Service
   metadata:
     labels:
-      app: ${NAME}
-    name: ${NAME}
+      app: ${NAME}-${DEPL_ID}
+    name: ${NAME}-${DEPL_ID}
   spec:
     ports:
     - port: 8090
@@ -247,8 +297,8 @@ objects:
       targetPort: 8090
       name: http
     selector:
-      app: ${NAME}
-      deploymentconfig: ${NAME}
+      app: ${NAME}-${DEPL_ID}
+      deploymentconfig: ${NAME}-${DEPL_ID}
 
 - apiVersion: v1
   kind: Route
@@ -256,8 +306,8 @@ objects:
     annotations:
       kubernetes.io/tls-acme: ${TLS_ACME}
     labels:
-      app: ${NAME}
-    name: ${NAME}
+      app: ${NAME}-${DEPL_ID}
+    name: ${NAME}-${DEPL_ID}
   spec:
     port:
       targetPort: 8090-tcp
@@ -266,7 +316,7 @@ objects:
       termination: edge
     to:
       kind: Service
-      name: ${NAME}
+      name: ${NAME}-${DEPL_ID}
 
 
 
@@ -274,6 +324,11 @@ parameters:
 - name: NAME
   description: The name for the deployment config, service and route
   required: true
+- name: DEPL_ID
+  description: Deployment ID
+  required: true
+  from: '[a-z0-9]{5}'
+  generate: expression
 - name: DOCKER_IMAGE
   description: The reference to the docker image to protect using oidc-ize
   required: true
