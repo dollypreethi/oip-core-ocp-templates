@@ -7,9 +7,9 @@ RUN apk update && \
     luarocks install lua-resty-openidc && \
     apk del .build-dependencies && \
     ln -sf /dev/stdout /usr/local/openresty/nginx/logs/access.log && \
-    ln -sf /dev/stderr /usr/local/openresty/nginx/logs/error.log
-    #ln -sf /dev/stderr /usr/local/openresty/nginx/logs/error.log && \
-    #chmod -vR g+wrX /usr/local/openresty{,-*}/nginx/{*_temp,logs}
+    ln -sf /dev/stderr /usr/local/openresty/nginx/logs/error.log && \
+    mkdir /usr/local/openresty/nginx/client_body_temp && \
+    chmod -vR g+wrX /usr/local/openresty{,-*}/nginx/{*_temp,logs}
 
 ADD nginx* /
 
