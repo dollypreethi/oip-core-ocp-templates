@@ -39,3 +39,16 @@ templates:
     tags: security
     iconClass: fa fa-cloud-upload
     storageclass: glusterfs-storage
+  oidc-proxy:
+    template_label: oidc-proxy
+    template_name: oidc-proxy
+    display_name: oidc-proxy
+    template_desc: |-
+      Run an Open ID Connect container protecting access to a backend service.
+      For more information about using this template, including OpenShift considerations, see https://github.com/{{vars['tmpl_vars']['github']['org']}}/{{vars['tmpl_vars']['github']['repo']}}/blob/{{vars['tmpl_vars']['github']['branch']}}/{{vars['tmpl_vars']['templates']['oidc-proxy']['template_name']}}/
+    toi_long_desc:  |-
+      Run an Open ID Connect container protecting access to a backend service.
+      For more information about using this template, including OpenShift considerations, see https://github.com/{{vars['tmpl_vars']['github']['org']}}/{{vars['tmpl_vars']['github']['repo']}}/blob/{{vars['tmpl_vars']['github']['branch']}}/{{vars['tmpl_vars']['templates']['oidc-proxy']['template_name']}}/
+    tags: security
+    iconClass: fa fa-cloud-upload
+    storageclass: glusterfs-storage
