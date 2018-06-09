@@ -37,7 +37,7 @@ templates:
       Run the specified docker image protecting it with an Open ID Connect side-car container.
       For more information about using this template, including OpenShift considerations, see https://github.com/{{vars['tmpl_vars']['github']['org']}}/{{vars['tmpl_vars']['github']['repo']}}/blob/{{vars['tmpl_vars']['github']['branch']}}/{{vars['tmpl_vars']['templates']['oidc-ize']['template_name']}}/
     tags: security
-    iconClass: fa fa-cloud-upload
+    iconClass: pficon pficon-cloud-security
     storageclass: glusterfs-storage
   oidc-proxy:
     template_label: oidc-proxy
@@ -50,5 +50,5 @@ templates:
       Run an Open ID Connect container protecting access to a backend service.
       For more information about using this template, including OpenShift considerations, see https://github.com/{{vars['tmpl_vars']['github']['org']}}/{{vars['tmpl_vars']['github']['repo']}}/blob/{{vars['tmpl_vars']['github']['branch']}}/{{vars['tmpl_vars']['templates']['oidc-proxy']['template_name']}}/
     tags: security
-    iconClass: fa fa-cloud-upload
+    iconClass: pficon pficon-cloud-security
     storageclass: glusterfs-storage
