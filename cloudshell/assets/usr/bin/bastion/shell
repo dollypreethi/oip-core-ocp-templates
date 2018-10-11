@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# The format of log files is /var/log/bastion/YYYY-MM-DD_HH-MM-SS_user
+#LOG_FILE="`date --date="today" "+%Y-%m-%d_%H-%M-%S"`_`whoami`"
+LOG_FILE="`date "+%Y-%m-%d_%H-%M-%S"`_`whoami`"
+LOG_DIR="/var/log/bastion/"
+
+# Print a welcome message
+cat << EOT
+
+Before using this terminal, please confirm that you agree with the
+terms & conditions described in the Code of Conduct document available
+at https://protected.lab-nxtit.com/docs/code_of_conduct_en.html
+
+NOTES:
+- This SSH session will be recorded and audited
+- AUDIT KEY: $LOG_FILE
+
+EOT
+echo -n "I confirm I read the Code of Conduct and agree to respect it (y/n): "
+
+while read line; do
+  if [ "$(echo $line | tr '[:upper:]' '[:lower:]')" == "y" ]; then
+    echo "Access granted!"
+    echo ""
+    break
+  else
+    echo "Access not allowed, leave by closing this window or tab!"
+    exit 1
+  fi
+done
+
+# I suffix the log file name with a random string. I explain why
+# later on.
+SUFFIX=`mktemp -u _XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX`
+
+SHELL=/bin/bash
+# Activate logging using 'script' utility, avoiding looping...
+if test -t 0; then
+  # Wrap an interactive shell into "script" to record the SSH session
+  exec script -qf --timing=$LOG_DIR$LOG_FILE$SUFFIX.time $LOG_DIR$LOG_FILE$SUFFIX.data --command=/bin/bash
+  # Should never reach here...
+  exit
+fi

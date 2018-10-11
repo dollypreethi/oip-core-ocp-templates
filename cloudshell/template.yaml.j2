@@ -1,0 +1,558 @@
+8080apiVersion: v1
+kind: Template
+labels:
+  template: {{tmpl_vars['templates']['cloudshell']['template_label']}}
+message: |-
+  The following service(s) have been created in your project: CloudShell.
+
+  For more information about using this template, including OpenShift considerations, see https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/blob/{{tmpl_vars['github']['branch']}}/{{tmpl_vars['templates']['cloudshell']['template_name']}}/
+
+metadata:
+  name: {{tmpl_vars['templates']['cloudshell']['template_name']}}
+  annotations:
+    description: |-
+      {{tmpl_vars['templates']['cloudshell']['template_desc'] | indent( width=6, indentfirst=False)}}
+    tags: {{tmpl_vars['templates']['cloudshell']['tags']}}
+    iconClass: {{tmpl_vars['templates']['cloudshell']['iconClass']}}
+    openshift.io/display-name: {{tmpl_vars['templates']['cloudshell']['display_name']}}
+    template.openshift.io/long-description: |-
+      {{tmpl_vars['templates']['cloudshell']['toi_long_desc'] | indent( width=6, indentfirst=False)}}
+    template.openshift.io/provider-display-name: {{tmpl_vars['oip_env']['provider']}}
+    template.openshift.io/documentation-url: "https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/blob/{{tmpl_vars['github']['branch']}}/{{tmpl_vars['templates']['cloudshell']['template_name']}}/README.md"
+    template.openshift.io/support-url: "https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/issues"
+
+
+
+objects:
+
+- apiVersion: v1
+  kind: Secret
+  metadata:
+    annotations:
+      template.openshift.io/expose-account-username: '{.data["account-username"]}'
+      template.openshift.io/expose-account-password: '{.data["account-password"]}'
+    labels:
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-account-${DEPL_ID}
+  stringData:
+    account-username: ${CS_USER_NAME}
+    account-password: ${CS_USER_PASSWORD}
+
+- apiVersion: v1
+  kind: Secret
+  metadata:
+    annotations:
+      template.openshift.io/expose-aws-access-key_id: '{.data["aws-access-key_id"]}'
+      template.openshift.io/expose-aws-secret-access-key: '{.data["aws-secret-access-key"]}'
+    labels:
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-tools-secrets-${DEPL_ID}
+  stringData:
+    aws-access-key-id: ${AWS_ACCESS_KEY_ID}
+    aws-secret-access-key: ${AWS_SECRET_ACCESS_KEY}
+
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    labels:
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-account-homedir-${DEPL_ID}
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: ${HOME_DIR_SIZE}
+    storageClassName: ${STORAGE_CLASS}
+
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-oiptools-${DEPL_ID}
+  spec:
+    tags:
+    - annotations:
+        openshift.io/imported-from: ${CLOUDSHELL_IMAGE}:${CLOUDSHELL_IMAGE_TAG}
+      from:
+        kind: DockerImage
+        name: ${CLOUDSHELL_IMAGE}:${CLOUDSHELL_IMAGE_TAG}
+      importPolicy:
+        scheduled: true
+      name: ${CLOUDSHELL_IMAGE_TAG}
+      referencePolicy:
+        type: Source
+
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    annotations:
+      openshift.io/display-name: ${APP_NAME}-wetty-${DEPL_ID}
+    labels:
+      build: ${APP_NAME}-wetty-${DEPL_ID}
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-wetty-${DEPL_ID}
+  spec:
+    lookupPolicy:
+      local: false
+
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    annotations:
+      openshift.io/display-name: ${APP_NAME}-cloudshell-${DEPL_ID}
+    labels:
+      build: ${APP_NAME}-cloudshell-${DEPL_ID}
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-cloudshell-${DEPL_ID}
+  spec:
+    lookupPolicy:
+      local: true
+
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    annotations:
+      openshift.io/display-name: ${APP_NAME}-wetty-${DEPL_ID}
+    labels:
+      build: ${APP_NAME}-wetty-${DEPL_ID}
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-wetty-${DEPL_ID}
+  spec:
+    failedBuildsHistoryLimit: 5
+    nodeSelector: null
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${APP_NAME}-wetty-${DEPL_ID}:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: Serial
+    source:
+      git:
+        uri: https://github.com/patlachance/wetty.git
+      type: Git
+    strategy:
+      dockerStrategy:
+        from:
+          kind: ImageStreamTag
+          name: node:8
+          namespace: openshift
+      type: Docker
+    successfulBuildsHistoryLimit: 5
+    triggers:
+    - github:
+        secret: wetty-${GITHUB_WEBHOOK}
+      type: GitHub
+    - generic:
+        secret: wetty-${GENERIC_WEBHOOK}
+      type: Generic
+    - type: ConfigChange
+    - imageChange:
+      type: ImageChange
+
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      build: cloudshell
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-cloudshell-${DEPL_ID}
+  spec:
+    nodeSelector: null
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${APP_NAME}-cloudshell-${DEPL_ID}:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: Serial
+    source:
+      contextDir: ${CLOUDSHELL_DOCKERFILE_REPO_CONTEXT}
+      git:
+        ref: ${CLOUDSHELL_DOCKERFILE_REPO_REF}
+        uri: ${CLOUDSHELL_DOCKERFILE_REPO}
+      type: Git
+    strategy:
+      dockerStrategy:
+        env:
+        - name: ACCOUNT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              key: account-username
+              name: ${APP_NAME}-account-${DEPL_ID}
+        - name: ACCOUNT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: account-password
+              name: ${APP_NAME}-account-${DEPL_ID}
+        from:
+          kind: ImageStreamTag
+          name: ${APP_NAME}-oiptools-${DEPL_ID}:${CLOUDSHELL_IMAGE_TAG}
+      type: Docker
+    triggers:
+    - github:
+        secret: cshell-${GITHUB_WEBHOOK}
+      type: GitHub
+    - generic:
+        secret: cshell-${GENERIC_WEBHOOK}
+    - type: ConfigChange
+    - imageChangeParams:
+        automatic: true
+        from:
+          kind: ImageStreamTag
+          name: ${APP_NAME}-oiptools-${DEPL_ID}:${CLOUDSHELL_IMAGE_TAG}
+      type: ImageChange
+
+
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-${DEPL_ID}
+  spec:
+    replicas: 1
+    selector:
+      app: ${APP_NAME}-${DEPL_ID}
+      deploymentconfig: ${APP_NAME}-${DEPL_ID}
+    strategy:
+      activeDeadlineSeconds: 21600
+      resources: {}
+      rollingParams:
+        intervalSeconds: 1
+        maxSurge: 25%
+        maxUnavailable: 25%
+        timeoutSeconds: 600
+        updatePeriodSeconds: 1
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          app: ${APP_NAME}-${DEPL_ID}
+          deploymentconfig: ${APP_NAME}-${DEPL_ID}
+      spec:
+        containers:
+        - name: wetty
+          image: ${APP_NAME}-wetty-${DEPL_ID}:latest
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 5
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 5
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+        - name: cloudshell
+          image: ${APP_NAME}-cloudshell-${DEPL_ID}:latest
+          imagePullPolicy: Always
+          env:
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                key: aws-access-key-id
+                name: ${APP_NAME}-tools-secrets-${DEPL_ID}
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                key: aws-secret-access-key
+                name: ${APP_NAME}-tools-secrets-${DEPL_ID}
+          - name: AWS_DEFAULT_REGION
+            value: ${AWS_DEFAULT_REGION}
+          - name: AWS_DEFAULT_OUTPUT
+            value: ${AWS_DEFAULT_OUTPUT}
+          - name: HTTP_PROXY
+            value: ${HTTP_PROXY}
+          - name: HTTPS_PROXY
+            value: ${HTTPS_PROXY}
+          - name: NO_PROXY
+            value: ${NO_PROXY}
+          - name: http_proxy
+            value: ${HTTP_PROXY}
+          - name: https_proxy
+            value: ${HTTPS_PROXY}
+          - name: no_proxy
+            value: ${NO_PROXY}
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 22
+            timeoutSeconds: 5
+          ports:
+          - containerPort: 22
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 22
+            timeoutSeconds: 5
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          volumeMounts:
+          - mountPath: /home/${CS_USER_NAME}
+            name: ${APP_NAME}-account-homedir
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - name: ${APP_NAME}-account-homedir
+          persistentVolumeClaim:
+            claimName: ${APP_NAME}-account-homedir-${DEPL_ID}
+    test: false
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - wetty
+        from:
+          kind: ImageStreamTag
+          name: ${APP_NAME}-wetty-${DEPL_ID}:latest
+      type: ImageChange
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - cloudshell
+        from:
+          kind: ImageStreamTag
+          name: ${APP_NAME}-cloudshell-${DEPL_ID}:latest
+      type: ImageChange
+    - type: ConfigChange
+
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-${DEPL_ID}
+  spec:
+    ports:
+    - name: 8080-tcp
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: ${APP_NAME}-${DEPL_ID}
+      deploymentconfig: ${APP_NAME}-${DEPL_ID}
+    sessionAffinity: None
+    type: ClusterIP
+
+- apiVersion: v1
+  kind: Route
+  metadata:
+    annotations:
+      kubernetes.io/tls-acme: "true"
+    labels:
+      app: ${APP_NAME}-${DEPL_ID}
+    name: ${APP_NAME}-${DEPL_ID}
+  spec:
+    host: ${CLOUDSHELL_ROUTE}
+    port:
+      targetPort: 8080-tcp
+    tls:
+      insecureEdgeTerminationPolicy: Redirect
+      termination: edge
+    to:
+      kind: Service
+      name: ${APP_NAME}-${DEPL_ID}
+      weight: 100
+    wildcardPolicy: None
+
+
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    labels:
+      app: ${APP_NAME}-${DEPL_ID}
+    name: cm-${APP_NAME}-nextcloud-autoconfig-${DEPL_ID}
+  data:
+    autoconfig.php: |
+      <?php
+
+      $autoconfig_enabled = true;
+
+      if (getenv('SQLITE_DATABASE')) {
+          $AUTOCONFIG["dbtype"] = "sqlite";
+          $AUTOCONFIG["dbname"] = getenv('SQLITE_DATABASE');
+          $autoconfig_enabled = true;
+      } elseif (getenv('MYSQL_DATABASE') && getenv('MYSQL_USER') && getenv('MYSQL_PASSWORD') && getenv('MYSQL_HOST')) {
+          $AUTOCONFIG["dbtype"] = "mysql";
+          $AUTOCONFIG["dbname"] = getenv('MYSQL_DATABASE');
+          $AUTOCONFIG["dbuser"] = getenv('MYSQL_USER');
+          $AUTOCONFIG["dbpass"] = getenv('MYSQL_PASSWORD');
+          $AUTOCONFIG["dbhost"] = getenv('MYSQL_HOST');
+          $autoconfig_enabled = true;
+      } elseif (getenv('POSTGRES_DB') && getenv('POSTGRES_USER') && getenv('POSTGRES_PASSWORD') && getenv('POSTGRES_HOST')) {
+          $AUTOCONFIG["dbtype"] = "pgsql";
+          $AUTOCONFIG["dbname"] = getenv('POSTGRES_DB');
+          $AUTOCONFIG["dbuser"] = getenv('POSTGRES_USER');
+          $AUTOCONFIG["dbpass"] = getenv('POSTGRES_PASSWORD');
+          $AUTOCONFIG["dbhost"] = getenv('POSTGRES_HOST');
+          $autoconfig_enabled = true;
+      }
+
+      if ($autoconfig_enabled) {
+          $AUTOCONFIG["dbtableprefix"] = getenv('NEXTCLOUD_TABLE_PREFIX') ?: "";
+
+          $AUTOCONFIG["directory"] = getenv('NEXTCLOUD_DATA_DIR') ?: "/var/www/html/data";
+
+          if (getenv('NEXTCLOUD_ADMIN_USER') && getenv('NEXTCLOUD_ADMIN_PASSWORD')) {
+              $AUTOCONFIG["adminlogin"] = getenv('NEXTCLOUD_ADMIN_USER');
+              $AUTOCONFIG["adminpass"] = getenv('NEXTCLOUD_ADMIN_PASSWORD');
+          }
+      }
+
+
+
+parameters:
+
+# Global parameters
+- description: Name of the application. Please use only lowercase characters and numbers. No space allowed
+  displayName: 'Application Name (required: true)'
+  name: APP_NAME
+  required: true
+  value: cloudshell
+- description: Unique deployment identifier. It allows you to deploy this template multiple times within the same project. Auto-generated if left empty.
+  displayName: 'Deployment ID (required: true)'
+  from: '[a-z0-9]{5}'
+  generate: expression
+  name: DEPL_ID
+  required: true
+- description: Name of the user account to create in the CloudShell container.
+  displayName: 'User name (required: false)'
+  name: CS_USER_NAME
+  required: true
+  value: csuser
+- description: Password to assign to the user account created.
+  displayName: 'User Password (required: false)'
+  from: '[a-zA-Z0-9]{12}'
+  generate: expression
+  name: CS_USER_PASSWORD
+  required: true
+- description: Amount of storage to allocate for user's data.
+  displayName: 'Home directory capacity (required: false)'
+  name: HOME_DIR_SIZE
+  required: true
+  value: 1Gi
+- description: Storage to allocate for user's data volume from. Valid values are 'gp2' or 'glusterfs-storage'
+  displayName: 'Home directory storage class (required: false)'
+  name: STORAGE_CLASS
+  required: true
+  value: gp2
+- description: Public URL on which the CloudShell will be exposed. Auto-generated if left empty.
+  displayName: 'CloudShell URL (required: false)'
+  name: CLOUDSHELL_ROUTE
+  required: false
+- description: CloudShell base image name to deploy. Must be in the form of 'registry_host/namespace'.
+  displayName: 'CloudShell base image (required: false)'
+  name: CLOUDSHELL_IMAGE
+  required: true
+  value: docker.io/oiprnd/oiptools
+- description: CloudShell base image tag to deploy.
+  displayName: 'CloudShell base image (required: false)'
+  name: CLOUDSHELL_IMAGE_TAG
+  required: true
+  value: alpine-stable
+- description: Git repository containing the Cloudshell Dockerfile.
+  displayName: 'CloudShell git repository (required: false)'
+  name: CLOUDSHELL_DOCKERFILE_REPO
+  required: true
+  value: https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}.git
+- description: Git repository branch to use.
+  displayName: 'CloudShell git repository branch (required: false)'
+  name: CLOUDSHELL_DOCKERFILE_REPO_REF
+  required: true
+  value: master
+- description: Directory in which to find the Dockerfile in the Git repository branch.
+  displayName: 'Git repository directory (required: false)'
+  name: CLOUDSHELL_DOCKERFILE_REPO_CONTEXT
+  required: true
+  value: cloudshell
+- description: Secret key to protect GitHub webhook triggers. Auto-generated if left empty.
+  displayName: 'GitHub Webhook key (required: false)'
+  from: '[a-zA-Z0-9]{20}'
+  generate: expression
+  name: GITHUB_WEBHOOK
+  required: true
+- description: Secret key to protect Generic webhook triggers. Auto-generated if left empty.
+  displayName: 'Generic Webhook key (required: false)'
+  from: '[a-zA-Z0-9]{20}'
+  generate: expression
+  name: GENERIC_WEBHOOK
+  required: true
+
+
+# Tools parameters
+- description: AWS Access Key ID to use to connect to AWS API endpoints.
+  displayName: 'AWS_ACCESS_KEY_ID (required: false)'
+  name: AWS_ACCESS_KEY_ID
+  required: false
+  value: ToBeDefinedIfNeeded
+- description: AWS Secret Access Key to use to connect to AWS API endpoints.
+  displayName: 'AWS_SECRET_ACCESS_KEY (required: false)'
+  name: AWS_SECRET_ACCESS_KEY
+  required: false
+  value: ToBeDefinedIfNeeded
+- description: AWS default region, used to select appropriate API endpoints.
+  displayName: 'AWS_DEFAULT_REGION (required: false)'
+  name: AWS_DEFAULT_REGION
+  required: false
+  value: eu-west-1
+- description: 'AWS CLI default output format. Valid values: json, text, table.'
+  displayName: 'AWS_DEFAULT_OUTPUT (required: false)'
+  name: AWS_DEFAULT_OUTPUT
+  required: false
+  value: json
+
+# Proxy settings
+- description: http proxy to use to connect to internet, if any. Defined both in lower and uppercase because some tools require specific declaration.
+  displayName: 'HTTP_PROXY (required: false)'
+  name: HTTP_PROXY
+  required: false
+  value: {{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}
+- description: https proxy to use to connect to internet, if any. Defined both in lower and uppercase because some tools require specific declaration.
+  displayName: 'HTTPS_PROXY (required: false)'
+  name: HTTPS_PROXY
+  required: false
+  value: {{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}
+- description: http proxy exclusion list, if proxy is configured
+  displayName: 'NO_PROXY (required: false)'
+  name: NO_PROXY
+  required: false
+  value: {{tmpl_vars['http_proxy']['no_proxy']}}
+- description: http proxy to use to connect to internet, if any. Defined both in lower and uppercase because some tools require specific declaration.
+  displayName: 'http_proxy (required: false)'
+  name: http_proxy
+  required: false
+  value: {{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}
+- description: https proxy to use to connect to internet, if any. Defined both in lower and uppercase because some tools require specific declaration.
+  displayName: 'https_proxy (required: false)'
+  name: https_proxy
+  required: false
+  value: {{tmpl_vars['http_proxy']['proto']}}://{{tmpl_vars['http_proxy']['host']}}:{{tmpl_vars['http_proxy']['port']}}
+- description: http proxy exclusion list, if proxy is configured
+  displayName: 'no_proxy (required: false)'
+  name: no_proxy
+  required: false
+  value: '{{tmpl_vars['http_proxy']['no_proxy']}}'
