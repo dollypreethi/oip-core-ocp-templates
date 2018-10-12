@@ -33,7 +33,7 @@ objects:
       template.openshift.io/expose-account-password: '{.data["account-password"]}'
     labels:
       app: ${APP_NAME}-${DEPL_ID}
-    name: ${APP_NAME}-account-${DEPL_ID}
+    name: ${APP_NAME}-${DEPL_ID}-account
   stringData:
     account-username: ${CS_USER_NAME}
     account-password: ${CS_USER_PASSWORD}
@@ -46,7 +46,7 @@ objects:
       template.openshift.io/expose-aws-secret-access-key: '{.data["aws-secret-access-key"]}'
     labels:
       app: ${APP_NAME}-${DEPL_ID}
-    name: ${APP_NAME}-tools-secrets-${DEPL_ID}
+    name: ${APP_NAME}-${DEPL_ID}-tools-secrets
   stringData:
     aws-access-key-id: ${AWS_ACCESS_KEY_ID}
     aws-secret-access-key: ${AWS_SECRET_ACCESS_KEY}
@@ -56,7 +56,7 @@ objects:
   metadata:
     labels:
       app: ${APP_NAME}-${DEPL_ID}
-    name: ${APP_NAME}-account-homedir-${DEPL_ID}
+    name: ${APP_NAME}-${DEPL_ID}-account-homedir
   spec:
     accessModes:
     - ReadWriteOnce
@@ -70,7 +70,7 @@ objects:
   metadata:
     labels:
       app: ${APP_NAME}-${DEPL_ID}
-    name: ${APP_NAME}-oiptools-${DEPL_ID}
+    name: ${APP_NAME}-${DEPL_ID}-oiptools
   spec:
     tags:
     - annotations:
@@ -88,11 +88,11 @@ objects:
   kind: ImageStream
   metadata:
     annotations:
-      openshift.io/display-name: ${APP_NAME}-wetty-${DEPL_ID}
+      openshift.io/display-name: ${APP_NAME}-${DEPL_ID}-wetty
     labels:
-      build: ${APP_NAME}-wetty-${DEPL_ID}
+      build: ${APP_NAME}-${DEPL_ID}-wetty
       app: ${APP_NAME}-${DEPL_ID}
-    name: ${APP_NAME}-wetty-${DEPL_ID}
+    name: ${APP_NAME}-${DEPL_ID}-wetty
   spec:
     lookupPolicy:
       local: false
@@ -101,11 +101,11 @@ objects:
   kind: ImageStream
   metadata:
     annotations:
-      openshift.io/display-name: ${APP_NAME}-cloudshell-${DEPL_ID}
+      openshift.io/display-name: ${APP_NAME}-${DEPL_ID}-cloudshell
     labels:
-      build: ${APP_NAME}-cloudshell-${DEPL_ID}
+      build: ${APP_NAME}-${DEPL_ID}-cloudshell
       app: ${APP_NAME}-${DEPL_ID}
-    name: ${APP_NAME}-cloudshell-${DEPL_ID}
+    name: ${APP_NAME}-${DEPL_ID}-cloudshell
   spec:
     lookupPolicy:
       local: true
@@ -114,18 +114,18 @@ objects:
   kind: BuildConfig
   metadata:
     annotations:
-      openshift.io/display-name: ${APP_NAME}-wetty-${DEPL_ID}
+      openshift.io/display-name: ${APP_NAME}-${DEPL_ID}-wetty
     labels:
-      build: ${APP_NAME}-wetty-${DEPL_ID}
+      build: ${APP_NAME}-${DEPL_ID}-wetty
       app: ${APP_NAME}-${DEPL_ID}
-    name: ${APP_NAME}-wetty-${DEPL_ID}
+    name: ${APP_NAME}-${DEPL_ID}-wetty
   spec:
     failedBuildsHistoryLimit: 5
     nodeSelector: null
     output:
       to:
         kind: ImageStreamTag
-        name: ${APP_NAME}-wetty-${DEPL_ID}:latest
+        name: ${APP_NAME}-${DEPL_ID}-wetty:latest
     postCommit: {}
     resources: {}
     runPolicy: Serial
@@ -137,7 +137,7 @@ objects:
       dockerStrategy:
         from:
           kind: ImageStreamTag
-          name: node:8
+          name: nodejs:8
           namespace: openshift
       type: Docker
     successfulBuildsHistoryLimit: 5
@@ -149,7 +149,12 @@ objects:
         secret: wetty-${GENERIC_WEBHOOK}
       type: Generic
     - type: ConfigChange
-    - imageChange:
+    - imageChangeParams:
+        automatic: true
+        from:
+          kind: ImageStreamTag
+          name: nodejs:8
+          namespace: openshift
       type: ImageChange
 
 - apiVersion: v1
@@ -158,13 +163,13 @@ objects:
     labels:
       build: cloudshell
       app: ${APP_NAME}-${DEPL_ID}
-    name: ${APP_NAME}-cloudshell-${DEPL_ID}
+    name: ${APP_NAME}-${DEPL_ID}-cloudshell
   spec:
     nodeSelector: null
     output:
       to:
         kind: ImageStreamTag
-        name: ${APP_NAME}-cloudshell-${DEPL_ID}:latest
+        name: ${APP_NAME}-${DEPL_ID}-cloudshell:latest
     postCommit: {}
     resources: {}
     runPolicy: Serial
@@ -181,15 +186,15 @@ objects:
           valueFrom:
             secretKeyRef:
               key: account-username
-              name: ${APP_NAME}-account-${DEPL_ID}
+              name: ${APP_NAME}-${DEPL_ID}-account
         - name: ACCOUNT_PASSWORD
           valueFrom:
             secretKeyRef:
               key: account-password
-              name: ${APP_NAME}-account-${DEPL_ID}
+              name: ${APP_NAME}-${DEPL_ID}-account
         from:
           kind: ImageStreamTag
-          name: ${APP_NAME}-oiptools-${DEPL_ID}:${CLOUDSHELL_IMAGE_TAG}
+          name: ${APP_NAME}-${DEPL_ID}-oiptools:${CLOUDSHELL_IMAGE_TAG}
       type: Docker
     triggers:
     - github:
@@ -202,7 +207,7 @@ objects:
         automatic: true
         from:
           kind: ImageStreamTag
-          name: ${APP_NAME}-oiptools-${DEPL_ID}:${CLOUDSHELL_IMAGE_TAG}
+          name: ${APP_NAME}-${DEPL_ID}-oiptools:${CLOUDSHELL_IMAGE_TAG}
       type: ImageChange
 
 
@@ -235,7 +240,7 @@ objects:
       spec:
         containers:
         - name: wetty
-          image: ${APP_NAME}-wetty-${DEPL_ID}:latest
+          image: ${APP_NAME}-${DEPL_ID}-wetty:latest
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 3
@@ -259,19 +264,19 @@ objects:
           resources: {}
           terminationMessagePath: /dev/termination-log
         - name: cloudshell
-          image: ${APP_NAME}-cloudshell-${DEPL_ID}:latest
+          image: ${APP_NAME}-${DEPL_ID}-cloudshell:latest
           imagePullPolicy: Always
           env:
           - name: AWS_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:
                 key: aws-access-key-id
-                name: ${APP_NAME}-tools-secrets-${DEPL_ID}
+                name: ${APP_NAME}-${DEPL_ID}-tools-secrets
           - name: AWS_SECRET_ACCESS_KEY
             valueFrom:
               secretKeyRef:
                 key: aws-secret-access-key
-                name: ${APP_NAME}-tools-secrets-${DEPL_ID}
+                name: ${APP_NAME}-${DEPL_ID}-tools-secrets
           - name: AWS_DEFAULT_REGION
             value: ${AWS_DEFAULT_REGION}
           - name: AWS_DEFAULT_OUTPUT
@@ -319,7 +324,7 @@ objects:
         volumes:
         - name: ${APP_NAME}-account-homedir
           persistentVolumeClaim:
-            claimName: ${APP_NAME}-account-homedir-${DEPL_ID}
+            claimName: ${APP_NAME}-${DEPL_ID}-account-homedir
     test: false
     triggers:
     - imageChangeParams:
@@ -328,7 +333,7 @@ objects:
         - wetty
         from:
           kind: ImageStreamTag
-          name: ${APP_NAME}-wetty-${DEPL_ID}:latest
+          name: ${APP_NAME}-${DEPL_ID}-wetty:latest
       type: ImageChange
     - imageChangeParams:
         automatic: true
@@ -336,7 +341,7 @@ objects:
         - cloudshell
         from:
           kind: ImageStreamTag
-          name: ${APP_NAME}-cloudshell-${DEPL_ID}:latest
+          name: ${APP_NAME}-${DEPL_ID}-cloudshell:latest
       type: ImageChange
     - type: ConfigChange
 
@@ -378,50 +383,6 @@ objects:
       name: ${APP_NAME}-${DEPL_ID}
       weight: 100
     wildcardPolicy: None
-
-
-- apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    labels:
-      app: ${APP_NAME}-${DEPL_ID}
-    name: cm-${APP_NAME}-nextcloud-autoconfig-${DEPL_ID}
-  data:
-    autoconfig.php: |
-      <?php
-
-      $autoconfig_enabled = true;
-
-      if (getenv('SQLITE_DATABASE')) {
-          $AUTOCONFIG["dbtype"] = "sqlite";
-          $AUTOCONFIG["dbname"] = getenv('SQLITE_DATABASE');
-          $autoconfig_enabled = true;
-      } elseif (getenv('MYSQL_DATABASE') && getenv('MYSQL_USER') && getenv('MYSQL_PASSWORD') && getenv('MYSQL_HOST')) {
-          $AUTOCONFIG["dbtype"] = "mysql";
-          $AUTOCONFIG["dbname"] = getenv('MYSQL_DATABASE');
-          $AUTOCONFIG["dbuser"] = getenv('MYSQL_USER');
-          $AUTOCONFIG["dbpass"] = getenv('MYSQL_PASSWORD');
-          $AUTOCONFIG["dbhost"] = getenv('MYSQL_HOST');
-          $autoconfig_enabled = true;
-      } elseif (getenv('POSTGRES_DB') && getenv('POSTGRES_USER') && getenv('POSTGRES_PASSWORD') && getenv('POSTGRES_HOST')) {
-          $AUTOCONFIG["dbtype"] = "pgsql";
-          $AUTOCONFIG["dbname"] = getenv('POSTGRES_DB');
-          $AUTOCONFIG["dbuser"] = getenv('POSTGRES_USER');
-          $AUTOCONFIG["dbpass"] = getenv('POSTGRES_PASSWORD');
-          $AUTOCONFIG["dbhost"] = getenv('POSTGRES_HOST');
-          $autoconfig_enabled = true;
-      }
-
-      if ($autoconfig_enabled) {
-          $AUTOCONFIG["dbtableprefix"] = getenv('NEXTCLOUD_TABLE_PREFIX') ?: "";
-
-          $AUTOCONFIG["directory"] = getenv('NEXTCLOUD_DATA_DIR') ?: "/var/www/html/data";
-
-          if (getenv('NEXTCLOUD_ADMIN_USER') && getenv('NEXTCLOUD_ADMIN_PASSWORD')) {
-              $AUTOCONFIG["adminlogin"] = getenv('NEXTCLOUD_ADMIN_USER');
-              $AUTOCONFIG["adminpass"] = getenv('NEXTCLOUD_ADMIN_PASSWORD');
-          }
-      }
 
 
 
