@@ -33,11 +33,12 @@ RUN info(){ printf '\n--\n%s\n--\n\n' "$*"; } \
  && addgroup -g $ACCOUNT_GID csusers \
  && info "==> allowing members of csusers group to use '/usr/bin/script'..." \
  && chgrp csusers /usr/bin/script \
- && chmod g+s /usr/bin/script /etc/shadow \
+ && chmod g+s /usr/bin/script \
  && info "==> creating user '$ACCOUNT_USERNAME'..." \
  && adduser -G csusers -u $ACCOUNT_UID -h /home/$ACCOUNT_USERNAME -s /usr/bin/bastion/shell -D $ACCOUNT_USERNAME \
  && info "==> setting $ACCOUNT_USERNAME password..." \
- && echo "$ACCOUNT_USERNAME:$ACCOUNT_PASSWORD" | chpasswd
+ && echo "$ACCOUNT_USERNAME:$ACCOUNT_PASSWORD" | chpasswd \
+ && cat /etc/shadow
 
 
 # Add various scripts in container image
