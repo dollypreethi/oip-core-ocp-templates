@@ -7,6 +7,7 @@ ARG ACCOUNT_PASSWORD
 ENV ACCOUNT_USERNAME=$ACCOUNT_USERNAME \
     ACCOUNT_PASSWORD=$ACCOUNT_PASSWORD \
     ACCOUNT_UID=1001 \
+    ACCOUNT_GID=1001 \
     SSH_PORT=2222
 
 EXPOSE $SSH_PORT
@@ -27,7 +28,17 @@ RUN info(){ printf '\n--\n%s\n--\n\n' "$*"; } \
  && info "==> cleaning up apk cache" \
  && rm -rf /var/cache/apk/* \
  && info "==> installing supervisord" \
- && pip2 install supervisor
+ && pip2 install supervisor \
+ && info "==> creating group 'csusers'..." \
+ && addgroup -g $ACCOUNT_GID csusers \
+ && info "==> allowing members of csusers group to use '/usr/bin/script'..." \
+ && chgrp csusers /usr/bin/script \
+ && chmod g+s /usr/bin/script \
+ && info "==> creating user '$ACCOUNT_USERNAME'..." \
+ && adduser -G csusers -u $ACCOUNT_UID -h /home/$ACCOUNT_USERNAME -s /usr/bin/bastion/shell -D $ACCOUNT_USERNAME \
+ && info "==> setting $ACCOUNT_USERNAME password..." \
+ && echo "$ACCOUNT_USERNAME:$ACCOUNT_PASSWORD" | chpasswd \
+
 
 # Add various scripts in container image
 ADD assets/ /
