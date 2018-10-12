@@ -17,7 +17,7 @@ USER root
 # Install linux utility commands, used to log user activity
 RUN info(){ printf '\n--\n%s\n--\n\n' "$*"; } \
  && info "==> installing openssh, tmux & script" \
- && apk add --no-cache util-linux tmux openssh \
+ && apk add --no-cache util-linux tmux openssh openssh-server \
  && info "==> creating ssh host keys" \
  && ssh-keygen -A \
  && info "==> disabling GSSAPIAuthentication authentication" \

@@ -134,12 +134,12 @@ objects:
         uri: https://github.com/patlachance/wetty.git
       type: Git
     strategy:
-      dockerStrategy:
+      sourceStrategy:
         from:
           kind: ImageStreamTag
           name: nodejs:8
           namespace: openshift
-      type: Docker
+      type: Source
     successfulBuildsHistoryLimit: 5
     triggers:
     - github:
