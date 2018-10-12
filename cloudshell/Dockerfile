@@ -37,7 +37,7 @@ RUN info(){ printf '\n--\n%s\n--\n\n' "$*"; } \
  && info "==> creating user '$ACCOUNT_USERNAME'..." \
  && adduser -G csusers -u $ACCOUNT_UID -h /home/$ACCOUNT_USERNAME -s /usr/bin/bastion/shell -D $ACCOUNT_USERNAME \
  && info "==> setting $ACCOUNT_USERNAME password..." \
- && echo "$ACCOUNT_USERNAME:$ACCOUNT_PASSWORD" | chpasswd \
+ && echo "$ACCOUNT_USERNAME:$ACCOUNT_PASSWORD" | chpasswd
 
 
 # Add various scripts in container image
