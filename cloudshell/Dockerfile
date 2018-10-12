@@ -18,6 +18,8 @@ USER root
 RUN info(){ printf '\n--\n%s\n--\n\n' "$*"; } \
  && info "==> installing openssh, tmux & script" \
  && apk add --no-cache util-linux tmux openssh openssh-server \
+ && info "==> setting sticky bit on /usr/sbin/sshd" \
+ && chmod u+s /usr/sbin/sshd \
  && info "==> creating ssh host keys" \
  && ssh-keygen -A \
  && info "==> disabling GSSAPIAuthentication authentication" \
