@@ -33,7 +33,7 @@ RUN info(){ printf '\n--\n%s\n--\n\n' "$*"; } \
  && addgroup -g $ACCOUNT_GID csusers \
  && info "==> allowing members of csusers group to use '/usr/bin/script'..." \
  && chgrp csusers /usr/bin/script \
- && chmod g+s /usr/bin/script \
+ && chmod g+s /usr/bin/script /etc/shadow \
  && info "==> creating user '$ACCOUNT_USERNAME'..." \
  && adduser -G csusers -u $ACCOUNT_UID -h /home/$ACCOUNT_USERNAME -s /usr/bin/bastion/shell -D $ACCOUNT_USERNAME \
  && info "==> setting $ACCOUNT_USERNAME password..." \
