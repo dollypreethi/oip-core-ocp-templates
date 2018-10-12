@@ -18,10 +18,10 @@ USER root
 RUN info(){ printf '\n--\n%s\n--\n\n' "$*"; } \
  && info "==> installing openssh, tmux & script" \
  && apk add --no-cache util-linux tmux openssh openssh-server \
- && info "==> setting sticky bit on /usr/sbin/sshd" \
- && chmod u+s /usr/sbin/sshd \
  && info "==> creating ssh host keys" \
  && ssh-keygen -A \
+ && echo -e "ClientAliveInterval 1\nGatewayPorts yes\nPermitEmptyPasswords yes\nPort 8022\nClientAliveCountMax 10\nPermitRootLogin yes\n" >> /etc/ssh/sshd_config \
+ && chmod -R g+r /etc/ssh \
  && info "==> disabling GSSAPIAuthentication authentication" \
  && sed -i "s/GSSAPIAuthentication yes/GSSAPIAuthentication no/" /etc/ssh/sshd_config \
  && info "==> cleaning up apk cache" \
