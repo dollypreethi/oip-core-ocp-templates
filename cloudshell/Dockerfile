@@ -25,7 +25,7 @@ RUN info(){ printf '\n--\n%s\n--\n\n' "$*"; } \
  && info "==> cleaning up apk cache" \
  && rm -rf /var/cache/apk/* \
  && info "==> installing supervisord" \
- && pip install supervisor
+ && pip2 install supervisor
 
 # Add various scripts in container image
 ADD assets/ /
