@@ -21,7 +21,7 @@ RUN info(){ printf '\n--\n%s\n--\n\n' "$*"; } \
  && info "==> creating ssh host keys" \
  && ssh-keygen -A \
  && info "==> disabling GSSAPIAuthentication authentication" \
- && sed -i "s/GSSAPIAuthentication yes/GSSAPIAuthentication no/" /etc/ssh/sshd_config; \
+ && sed -i "s/GSSAPIAuthentication yes/GSSAPIAuthentication no/" /etc/ssh/sshd_config \
  && info "==> cleaning up apk cache" \
  && rm -rf /var/cache/apk/* \
  && info "==> installing supervisord" \
