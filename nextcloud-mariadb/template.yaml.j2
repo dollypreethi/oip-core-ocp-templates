@@ -23,20 +23,16 @@ metadata:
   name: {{tmpl_vars['templates']['nextcloud-mariadb']['template_name']}}
   annotations:
     description: |-
-      Nextcloud open source secure collaboration solution with MariaDB database service backend for persistent storage.
-      For more information about using this template, including OpenShift considerations, see https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/blob/{{tmpl_vars['github']['branch']}}/${TEMPLATE_NAME}/
-
-      NOTE: Scaling MariaDB to more than one replica is not supported. You must have persistent volumes available in your cluster to use this template.
-    tags: "filesharing,nextcloud"
-    iconClass: fa fa-cloud-upload
-    openshift.io/display-name: Nextcloud (MariaDB Persistence)
-    template.openshift.io/long-description: This template provides a Nextcloud instance backed with a 
-      standalone MariaDB server. The database is stored on persistent storage.  The
-      database name, username, and password are chosen via parameters when provisioning
-      this service.
-    template.openshift.io/provider-display-name: OIP by ITisOpen, Inc.
-    template.openshift.io/documentation-url: "https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/blob/{{tmpl_vars['github']['branch']}}/${TEMPLATE_NAME}/README.md"
+      {{tmpl_vars['templates']['nextcloud-mariadb']['template_desc'] | indent( width=6, indentfirst=False)}}
+    tags: {{tmpl_vars['templates']['nextcloud-mariadb']['tags']}}
+    iconClass: {{tmpl_vars['templates']['nextcloud-mariadb']['iconClass']}}
+    openshift.io/display-name: {{tmpl_vars['templates']['nextcloud-mariadb']['display_name']}}
+    template.openshift.io/long-description: |-
+      {{tmpl_vars['templates']['nextcloud-mariadb']['toi_long_desc'] | indent( width=6, indentfirst=False)}}
+    template.openshift.io/provider-display-name: {{tmpl_vars['oip_env']['provider']}}
+    template.openshift.io/documentation-url: "https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/blob/{{tmpl_vars['github']['branch']}}/{{tmpl_vars['templates']['nextcloud-mariadb']['template_name']}}/README.md"
     template.openshift.io/support-url: "https://github.com/{{tmpl_vars['github']['org']}}/{{tmpl_vars['github']['repo']}}/issues"
+
 
 
 parameters:
@@ -76,6 +72,11 @@ parameters:
 - name: NEXTCLOUD_HOST
   description: Application URL of Nextcloud (Route/host)
   required: false
+- name: NEXTCLOUD_TRUSTED_DOMAIN
+  displayName: Nextcloud Trusted Domain
+  description: Connections coming from other sources will be refused.
+  required: true
+  value: '{{tmpl_vars['oip_env']['hosting_wildcard_domain']}}'
 - name: NEXTCLOUD_IMAGE
   description: Image to deploy
   value: docker.io/nextcloud
@@ -500,7 +501,7 @@ objects:
       weight: 100
     wildcardPolicy: None
 
-- apiVersion: batch/v2alpha1
+- apiVersion: batch/v1beta1
   kind: CronJob
   metadata:
     labels:
@@ -622,6 +623,11 @@ objects:
       $CONFIG = array (
           'check_data_directory_permissions' => false,
           'proxy' => '${NEXTCLOUD_PROXY}',
+          'trusted_domains' => 
+          array (
+            0 => 'localhost',
+            1 => '${NEXTCLOUD_TRUSTED_DOMAIN}',
+          ),
       );
 
 - apiVersion: v1
