@@ -82,7 +82,7 @@ parameters:
   value: docker.io/nextcloud
 - name: NEXTCLOUD_IMAGE_TAG
   description: Tag of the Nextcloud Docker Image to deploy
-  value: 13-fpm
+  value: 17-fpm
 - name: STORAGE_CLASS
   description: Storage class to use when claiming volume. It must support ReadWriteMany access mode.
   value: {{tmpl_vars['templates']['nextcloud-mariadb']['storageclass']}}
