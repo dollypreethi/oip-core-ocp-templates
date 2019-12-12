@@ -87,6 +87,8 @@ RUN luarocks install lua-resty-openidc && \
     mkdir -p ${APP_ROOT}/etc/nginx.default.d/ && \
     mkdir -p ${APP_ROOT}/src/nginx-start/ && \
     mkdir -p ${NGINX_CONTAINER_SCRIPTS_PATH}/nginx-start && \
+    mkdir -p ${NGINX_LOG_PATH} && \
+    ln -s ${NGINX_LOG_PATH} /var/log/nginx && \
     chmod -R ug+rwx ${APP_ROOT}/etc && \
     chmod -R ug+rwx ${NGINX_CONTAINER_SCRIPTS_PATH}/nginx-start && \
     chown -R 1001:0 ${APP_ROOT} && \
