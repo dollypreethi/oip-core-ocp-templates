@@ -82,7 +82,21 @@ RUN luarocks install lua-resty-openidc && \
     luarocks install lua-resty-string && \
     yum install -y centos-release-scl-rh && \
     yum install -y nss_wrapper && \
-    yum clean all
+    yum clean all && \
+    mkdir -p ${NGINX_APP_ROOT}/etc/nginx.d/ && \
+    mkdir -p ${NGINX_APP_ROOT}/etc/nginx.default.d/ && \
+    mkdir -p ${NGINX_APP_ROOT}/src/nginx-start/ && \
+    mkdir -p ${NGINX_CONTAINER_SCRIPTS_PATH}/nginx-start && \
+    mkdir -p ${NGINX_LOG_PATH} && \
+    ln -s ${NGINX_LOG_PATH} /var/log/nginx && \
+    chmod -R ug+rwx ${NGINX_APP_ROOT}/etc && \
+    chmod -R ug+rwx ${NGINX_CONTAINER_SCRIPTS_PATH}/nginx-start && \
+    chown -R 1001:0 ${NGINX_APP_ROOT} && \
+    chown -R 1001:0 ${NGINX_CONTAINER_SCRIPTS_PATH}/nginx-start && \
+    chmod -R ug+rwx /var/run && \
+    chown -R 1001:0 /var/run
+
+
 
 # Reset permissions of modified directories and add default user
 RUN rpm-file-permissions && \
