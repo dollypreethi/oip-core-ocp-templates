@@ -93,6 +93,8 @@ RUN luarocks install lua-resty-openidc && \
     chmod -R ug+rwx ${NGINX_CONTAINER_SCRIPTS_PATH}/nginx-start && \
     chown -R 1001:0 ${APP_ROOT} && \
     chown -R 1001:0 ${NGINX_CONTAINER_SCRIPTS_PATH}/nginx-start && \
+    chmod -R ug+rwx /var/log/nginx && \
+    chown -R 1001:0 /var/log/nginx && \
     chmod -R ug+rwx /var/run && \
     chown -R 1001:0 /var/run
 
