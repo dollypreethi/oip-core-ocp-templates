@@ -1,3 +1,4 @@
+FROM docker.io/openresty/openresty:1.15.8.2-5-centos
 ARG IMAGE_ORG="oip-rnd"
 ARG OS_NAME="centos"
 ARG COMPONENT_NAME="openresty"
@@ -5,7 +6,6 @@ ARG COMPONENT_VERSION="1.15.8.2-5"
 ARG COMPONENT_SHORT_VERSION="115825"
 
 #FROM docker.io/openresty/${COMPONENT_NAME}:${COMPONENT_VERSION}-${OS_NAME}
-FROM docker.io/openresty/openresty:1.15.8.2-5-centos
 
 EXPOSE 8080
 EXPOSE 8443
