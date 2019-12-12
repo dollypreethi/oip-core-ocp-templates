@@ -83,13 +83,13 @@ RUN luarocks install lua-resty-openidc && \
     yum install -y centos-release-scl-rh && \
     yum install -y nss_wrapper && \
     yum clean all && \
-    mkdir -p ${NGINX_APP_ROOT}/etc/nginx.d/ && \
-    mkdir -p ${NGINX_APP_ROOT}/etc/nginx.default.d/ && \
-    mkdir -p ${NGINX_APP_ROOT}/src/nginx-start/ && \
+    mkdir -p ${APP_ROOT}/etc/nginx.d/ && \
+    mkdir -p ${APP_ROOT}/etc/nginx.default.d/ && \
+    mkdir -p ${APP_ROOT}/src/nginx-start/ && \
     mkdir -p ${NGINX_CONTAINER_SCRIPTS_PATH}/nginx-start && \
-    chmod -R ug+rwx ${NGINX_APP_ROOT}/etc && \
+    chmod -R ug+rwx ${APP_ROOT}/etc && \
     chmod -R ug+rwx ${NGINX_CONTAINER_SCRIPTS_PATH}/nginx-start && \
-    chown -R 1001:0 ${NGINX_APP_ROOT} && \
+    chown -R 1001:0 ${APP_ROOT} && \
     chown -R 1001:0 ${NGINX_CONTAINER_SCRIPTS_PATH}/nginx-start && \
     chmod -R ug+rwx /var/run && \
     chown -R 1001:0 /var/run
