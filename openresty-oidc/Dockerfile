@@ -79,7 +79,10 @@ CMD ["base-usage"]
 
 # Image specific...
 RUN luarocks install lua-resty-openidc && \
-    luarocks install lua-resty-string
+    luarocks install lua-resty-string && \
+    yum install -y centos-release-scl-rh && \
+    yum install -y nss_wrapper && \
+    yum clean all
 
 # Reset permissions of modified directories and add default user
 RUN rpm-file-permissions && \
