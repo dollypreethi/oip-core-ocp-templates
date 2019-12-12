@@ -34,7 +34,7 @@ LABEL summary="${SUMMARY}" \
       version="${COMPONENT_VERSION}" \
       maintainer="Cloud Innovation Platform team <list.fr-cloud-innovation-platform@socgen.com>" \
       help="For more information visit https://github.com/sclorg/${COMPONENT_NAME}-container" \
-      usage="s2i build <SOURCE-REPOSITORY> ${IMAGE_ORG}/${COMPONENT_NAME}-${COMPONENT_SHORT_VERSION}-${OS_NAME}:latest <APP-NAME>"
+      usage="s2i build <SOURCE-REPOSITORY> ${IMAGE_ORG}/${COMPONENT_NAME}-${COMPONENT_SHORT_VERSION}-${OS_NAME}:latest <APP-NAME>" \
       version="1"
 
 # From https://github.com/sclorg/s2i-base-container/blob/master/core/Dockerfile
